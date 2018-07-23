@@ -36,39 +36,40 @@ class Decoder(nn.Module):
     Use upsample & conv to achieve transposed conv
     ***
     """
-    super(Decoder, self).__init__()
-    self.block1 = nn.Sequential(
-        nn.Conv2d(4, 16, kernel_size=1),
-        nn.BatchNorm2d(16),
-        nn.Conv2d(16, 16, kernel_size=3, padding=1),
-        nn.BatchNorm2d(16),
-        nn.Conv2d(16, 4, kernel_size=1),
-        nn.BatchNorm2d(4),
-        nn.ReLU(inplace=True),
-        nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-    )
-    self.block2 = nn.Sequential(
-        nn.Conv2d(7, 28, kernel_size=1),
-        nn.BatchNorm2d(28),
-        nn.Conv2d(28, 28, kernel_size=3, padding=1),
-        nn.BatchNorm2d(28),
-        nn.Conv2d(28, 7, kernel_size=1),
-        nn.BatchNorm2d(7),
-        nn.ReLU(inplace=True),
-        nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-    )
-    self.block3 = nn.Sequential(
-        nn.Conv2d(10, 40, kernel_size=1),
-        nn.BatchNorm2d(40),
-        nn.Conv2d(40, 40, kernel_size=3, padding=1),
-        nn.BatchNorm2d(40),
-        nn.Conv2d(40, 10, kernel_size=1),
-        nn.BatchNorm2d(10),
-        nn.ReLU(inplace=True),
-        nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-    )
-    self.final_conv = nn.Conv2d(13, 1, kernel_size=1)
-    self.downsample = nn.Upsample(scale_factor=0.5, mode='bilinear', align_corners=True)
+    def __init__(self):
+        super(Decoder, self).__init__()
+        self.block1 = nn.Sequential(
+            nn.Conv2d(4, 16, kernel_size=1),
+            nn.BatchNorm2d(16),
+            nn.Conv2d(16, 16, kernel_size=3, padding=1),
+            nn.BatchNorm2d(16),
+            nn.Conv2d(16, 4, kernel_size=1),
+            nn.BatchNorm2d(4),
+            nn.ReLU(inplace=True),
+            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        )
+        self.block2 = nn.Sequential(
+            nn.Conv2d(7, 28, kernel_size=1),
+            nn.BatchNorm2d(28),
+            nn.Conv2d(28, 28, kernel_size=3, padding=1),
+            nn.BatchNorm2d(28),
+            nn.Conv2d(28, 7, kernel_size=1),
+            nn.BatchNorm2d(7),
+            nn.ReLU(inplace=True),
+            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        )
+        self.block3 = nn.Sequential(
+            nn.Conv2d(10, 40, kernel_size=1),
+            nn.BatchNorm2d(40),
+            nn.Conv2d(40, 40, kernel_size=3, padding=1),
+            nn.BatchNorm2d(40),
+            nn.Conv2d(40, 10, kernel_size=1),
+            nn.BatchNorm2d(10),
+            nn.ReLU(inplace=True),
+            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        )
+        self.final_conv = nn.Conv2d(13, 1, kernel_size=1)
+        self.downsample = nn.Upsample(scale_factor=0.5, mode='bilinear', align_corners=True)
 
     def forward(self, x, c):
         c_2 = self.downsample(c)
