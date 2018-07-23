@@ -2,6 +2,8 @@ from torch.nn import funtional as F
 import numpy as np
 import torch
 
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") 
+
 def MSELoss(ground_truth, prediction):
     """
     This function will return MSELoss between ground_truth and prediction
@@ -39,9 +41,9 @@ def EdgeLoss(ground_truth, prediction):
     # Create tensors from numpy and reshape to desired shape of tensor
     # (out_channel, in_channel, H, W)
     x_filter = torch.from_numpy(x_filter).float().view(1, 1, 2, 2)
-    x_filter = x_filter.repeat(channel_out, channel_in, 1, 1)
+    x_filter = x_filter.repeat(channel_out, channel_in, 1, 1).to(DEVICE)
     y_filter = torch.from_numpy(y_filter).float().view(1, 1, 2, 2)
-    y_filter = y_filter.repeat(channel_out, channel_in, 1, 1)
+    y_filter = y_filter.repeat(channel_out, channel_in, 1, 1).to(DEVICE)
 
     # Use convolution to get difference maps of prediction and GT.
     gt_x = F.conv2d(ground_truth, x_filter)
