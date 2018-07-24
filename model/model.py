@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from pretrain import resnet50
+from .pretrain import resnet50
 
 class Encoder(nn.Module):
     """
