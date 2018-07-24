@@ -48,9 +48,9 @@ def EdgeLoss(ground_truth, prediction):
     # Use convolution to get difference maps of prediction and GT.
     gt_x = F.conv2d(ground_truth, x_filter)
     gt_y = F.conv2d(ground_truth, y_filter)
-    pred_x = F.conv2d(ground_truth, x_filter)
-    pred_y = F.conv2d(ground_truth, y_filter)
+    pred_x = F.conv2d(prediction, x_filter)
+    pred_y = F.conv2d(prediction, y_filter)
 
     # Use L1Loss to calculate loss between two difference maps
-    total_loss = F.l1_loss(gt_x, pred_x) + F.l1_loss(pred_x, pred_y)
+    total_loss = F.l1_loss(gt_x, pred_x) + F.l1_loss(gt_y, pred_y)
     return total_loss
