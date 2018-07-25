@@ -2,24 +2,24 @@ from torch.nn import funtional as F
 import numpy as np
 import torch
 
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") 
+DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu") 
 
-def MSELoss(ground_truth, prediction):
+def MSELoss(prediction, ground_truth):
     """
     This function will return MSELoss between ground_truth and prediction
     """
-    return F.mse_loss(ground_truth, prediction)
+    return F.mse_loss(prediction, ground_truth)
 
-def SmoothL1Loss(ground_truth, prediction):
+def SmoothL1Loss(prediction, ground_truth):
     """
     This function will return SmoothL1Loss in pytorch.
     It seems to be ess sensitive to outliers than the MSELoss
     and in some cases prevents exploding gradients.
     https://pytorch.org/docs/stable/nn.html#torch.nn.SmoothL1Loss
     """
-    return F.smooth_l1_loss(ground_truth, prediction)
+    return F.smooth_l1_loss(prediction, ground_truth)
 
-def EdgeLoss(ground_truth, prediction):
+def EdgeLoss(prediction, ground_truth):
     """
     Calculate GDL(gradient difference loss) between GT and prediction.
     """
@@ -52,5 +52,5 @@ def EdgeLoss(ground_truth, prediction):
     pred_y = F.conv2d(prediction, y_filter)
 
     # Use L1Loss to calculate loss between two difference maps
-    total_loss = F.l1_loss(gt_x, pred_x) + F.l1_loss(gt_y, pred_y)
+    total_loss = F.l1_loss(pred_x, gt_x) + F.l1_loss(pred_y, gt_y)
     return total_loss

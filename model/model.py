@@ -24,6 +24,7 @@ class Encoder(nn.Module):
             self.final_conv = nn.Conv2d(512, 1, kernel_size=1)
         
     def forward(self, x):
+        # TODO: Concat of flows and images
         x = self.features(x)
         x = self.final_conv(x)
         return x
