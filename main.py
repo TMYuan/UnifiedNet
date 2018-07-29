@@ -53,10 +53,13 @@ if __name__ == '__main__':
         'encoder': encoder(vae=False).to(DEVICE),
         'decoder': decoder().to(DEVICE)
     }
+    print(model['encoder'])
+    print(model['decoder'])
     params = []
-    for m in model.items():
+    for m in model.values():
         params += list(m.parameters())
     optimizer = optim.SGD(params, lr=LR, momentum=0.9, weight_decay=0.1)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=3)
     
-    # Training Processing
+    # Training Procedure
+    model = train.train(model, fc_train, optimizer, scheduler, N_EPOCHS)
