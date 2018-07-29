@@ -2,8 +2,8 @@ from model import encoder, decoder
 from util import datasets
 from torchvision import transforms
 from torch.utils.data import DataLoader
+from train import train
 import loss
-import train
 import numpy as np
 import torch
 import torch.optim as optim
@@ -39,8 +39,8 @@ def prepare_data(param, transformation):
     data_test = datasets.Datasets(path_test, name, dtype, transforms=transformation)
 
     # Create dataloader for train and test
-    dataloader_train = DataLoader(dataset=data_train, batch_size=BATCH_SIZE, suffle=True)
-    dataloader_test = DataLoader(dataset=data_test, batch_size=BATCH_SIZE, suffle=True)
+    dataloader_train = DataLoader(dataset=data_train, batch_size=BATCH_SIZE, shuffle=True)
+    dataloader_test = DataLoader(dataset=data_test, batch_size=BATCH_SIZE, shuffle=True)
     return dataloader_train, dataloader_test
 
 if __name__ == '__main__':
@@ -53,13 +53,14 @@ if __name__ == '__main__':
         'encoder': encoder(vae=False).to(DEVICE),
         'decoder': decoder().to(DEVICE)
     }
-    print(model['encoder'])
-    print(model['decoder'])
+#     print(model['encoder'])
+#     print(model['decoder'])
     params = []
     for m in model.values():
         params += list(m.parameters())
     optimizer = optim.SGD(params, lr=LR, momentum=0.9, weight_decay=0.1)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=3)
     
+#     print(len(fc_train))
     # Training Procedure
-    model = train.train(model, fc_train, optimizer, scheduler, N_EPOCHS)
+    model = train(model, fc_train, optimizer, scheduler, N_EPOCHS)

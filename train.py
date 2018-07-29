@@ -3,7 +3,7 @@ import copy
 import torch
 from tqdm import tqdm
 from torch.distributions.normal import Normal
-from ..loss import MSELoss, SmoothL1Loss, EdgeLoss
+from loss import MSELoss, SmoothL1Loss, EdgeLoss
 
 DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
 

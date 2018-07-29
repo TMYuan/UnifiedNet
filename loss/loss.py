@@ -1,4 +1,4 @@
-from torch.nn import funtional as F
+from torch.nn import functional as F
 import numpy as np
 import torch
 

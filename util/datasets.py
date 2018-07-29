@@ -26,11 +26,14 @@ def file_utils(root, dataset, dstype, iext):
     """
     flow_root = os.path.join(root, 'flow')
     image_root = os.path.join(root, dstype)
+#     print(flow_root)
+#     print(image_root)
     flow_list = []
     image_list = []
     
     if dataset == 'FlyingChairs':
-        file_list = sorted(glob(os.path.join(flow_root, '*.flo')))        
+        file_list = sorted(glob(flow_root + '/*.mat'))        
+#         print(file_list)
         for file in file_list:        
             fbase = file[len(flow_root)+1:]
             fprefix = fbase[-9:-4]
@@ -64,6 +67,8 @@ def file_utils(root, dataset, dstype, iext):
                 continue
             image_list += [img]
             flow_list += [file]
+#     print(image_list)
+#     print(flow_list)
         
     return image_list, flow_list
 
