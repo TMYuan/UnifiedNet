@@ -24,7 +24,7 @@ PARAM_CHAIRS = {
 BATCH_SIZE = 10
 N_EPOCHS = 30
 LR = 1e-4
-DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 def prepare_data(param, transformation):
@@ -68,3 +68,4 @@ if __name__ == '__main__':
 #     print(len(fc_train))
     # Training Procedure
     model = train(model, fc_train, optimizer, scheduler, N_EPOCHS, batch_size=BATCH_SIZE)
+    model.save_state_dict('first_weight')

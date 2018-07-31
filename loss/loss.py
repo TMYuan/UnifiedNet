@@ -2,7 +2,7 @@ from torch.nn import functional as F
 import numpy as np
 import torch
 
-DEVICE = torch.device("cuda:1" if torch.cuda.is_available() else "cpu") 
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") 
 
 def MSELoss(prediction, ground_truth):
     """
