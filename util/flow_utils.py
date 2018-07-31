@@ -25,7 +25,8 @@ def readFlow(fn):
             data = np.fromfile(f, np.float32, count=2*int(w)*int(h))
             # Reshape data into 3D array (columns, rows, bands)
             # The reshape here is for visualization, the original code is (w,h,2)
-            return np.resize(data, (int(h), int(w), 2))
+            data = np.resize(data, (int(h), int(w), 2))
+            return data
 
 def writeFlow(filename,uv,v=None):
     """ Write optical flow to file.

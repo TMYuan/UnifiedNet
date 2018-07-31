@@ -25,7 +25,7 @@ def EdgeLoss(prediction, ground_truth):
     """
     assert ground_truth.shape == prediction.shape
     # Define channel of input and output
-    channel_in = prediction.shape[2]
+    channel_in = prediction.shape[1]
     channel_out = channel_in
 
     # Define two filters

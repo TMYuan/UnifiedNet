@@ -32,7 +32,7 @@ def file_utils(root, dataset, dstype, iext):
     image_list = []
     
     if dataset == 'FlyingChairs':
-        file_list = sorted(glob(flow_root + '/*.mat'))        
+        file_list = sorted(glob(flow_root + '/*.flo'))        
 #         print(file_list)
         for file in file_list:        
             fbase = file[len(flow_root)+1:]
@@ -83,17 +83,30 @@ class Datasets(data.Dataset):
     def __getitem__(self, index):
         index = index % self.size
         img = cv2.imread(self.image_list[index])
-        flow = readFlow(self.flow_list[index])
-        flow = np.transpose(flow.astype(np.float32))
+        flow = readFlow(self.flow_list[index]).astype('float32')
+#         flow = np.transpose(flow.astype(np.float32), (1, 2, 0))
 
         img = cv2.resize(img, (self.img_size,self.img_size))
         flow = cv2.resize(flow, (self.img_size,self.img_size))
         
         if self.transforms is not None:
             img = self.transforms(img)
-            flow = self.transforms(flow)
+            flow = self._flow_trans(flow)
         return img, flow
     
     def __len__(self):
         return self.size
+    
+    def _flow_trans(self, flow):
+        # To tensor, normalize, change channel
+        # 1. normalize
+        flow[..., 0] = flow[..., 0] / flow.shape[1]
+        flow[..., 1] = flow[..., 1] / flow.shape[0]
+        
+        # 2. change channel
+        flow = np.moveaxis(flow, -1, 0)
+        
+        # 3. To tensor
+        flow = torch.from_numpy(flow)
+        return flow
     
