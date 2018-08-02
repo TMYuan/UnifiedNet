@@ -80,7 +80,14 @@ class Decoder(nn.Module):
             nn.ReLU(inplace=True),
             nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
         )
-        self.final_conv = nn.Conv2d(16, 2, kernel_size=1)
+        self.final_conv = nn.Sequential(
+            nn.Conv2d(16, 64, kernel_size=1),
+            nn.BatchNorm2d(64),
+            nn.Conv2d(64, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.Conv2d(64, 2, kernel_size=1),
+            nn.Tanh()
+        )
 
     def forward(self, x, c):
         # c_{} means down-sampling factor

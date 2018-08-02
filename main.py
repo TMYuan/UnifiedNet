@@ -1,5 +1,5 @@
 from model import encoder, decoder
-from util import datasets
+from util import datasets, plot
 from torchvision import transforms
 from torch.utils.data import DataLoader
 from train import train
@@ -22,8 +22,8 @@ PARAM_CHAIRS = {
 }
 
 BATCH_SIZE = 10
-N_EPOCHS = 30
-LR = 1e-4
+N_EPOCHS = 20
+LR = 1e-3
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
@@ -67,5 +67,7 @@ if __name__ == '__main__':
     
 #     print(len(fc_train))
     # Training Procedure
-    model = train(model, fc_train, optimizer, scheduler, N_EPOCHS, batch_size=BATCH_SIZE)
-    model.save_state_dict('first_weight')
+    model, loss_record = train(model, fc_train, optimizer, scheduler, N_EPOCHS, batch_size=BATCH_SIZE)
+    torch.save(model['encoder'].state_dict(), 'saved/0802/weight_encoder.pt')
+    torch.save(model['decoder'].state_dict(), 'saved/0802/weight_decoder.pt')
+    plot.draw(loss_record ,'saved/0802/')

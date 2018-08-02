@@ -105,3 +105,9 @@ venv.bak/
 
 # Flying chairs dataset
 /data
+
+# model weights and results
+/saved
+
+# nohup log file
+nohup.out
