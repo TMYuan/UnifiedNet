@@ -20,9 +20,9 @@ class Encoder(nn.Module):
         self.features = nn.Sequential(*list(resnet.children())[:-3])
         self.vae = vae
         if vae:
-            self.final_conv = nn.Conv2d(1024, 2, kernel_size=1)
+            self.final_conv = nn.Conv2d(1024, 2, kernel_size=3, padding=1)
         else:
-            self.final_conv = nn.Conv2d(1024, 1, kernel_size=1)
+            self.final_conv = nn.Conv2d(1024, 1, kernel_size=3, padding=1)
         
     def forward(self, x, c):
         # TODO: Concat of flows and images
@@ -47,7 +47,7 @@ class Decoder(nn.Module):
             nn.BatchNorm2d(16),
             nn.Conv2d(16, 4, kernel_size=1),
             nn.BatchNorm2d(4),
-            nn.ReLU(inplace=True),
+#             nn.Tanh(),
             nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
         )
         self.block2 = nn.Sequential(
@@ -57,7 +57,7 @@ class Decoder(nn.Module):
             nn.BatchNorm2d(28),
             nn.Conv2d(28, 7, kernel_size=1),
             nn.BatchNorm2d(7),
-            nn.ReLU(inplace=True),
+#             nn.Tanh(),
             nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
         )
         self.block3 = nn.Sequential(
@@ -67,7 +67,7 @@ class Decoder(nn.Module):
             nn.BatchNorm2d(40),
             nn.Conv2d(40, 10, kernel_size=1),
             nn.BatchNorm2d(10),
-            nn.ReLU(inplace=True),
+#             nn.Tanh(),
             nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
         )
         self.block4 = nn.Sequential(
@@ -77,7 +77,7 @@ class Decoder(nn.Module):
             nn.BatchNorm2d(52),
             nn.Conv2d(52, 13, kernel_size=1),
             nn.BatchNorm2d(13),
-            nn.ReLU(inplace=True),
+#             nn.Tanh(),
             nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
         )
         self.final_conv = nn.Sequential(
@@ -85,8 +85,8 @@ class Decoder(nn.Module):
             nn.BatchNorm2d(64),
             nn.Conv2d(64, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64),
-            nn.Conv2d(64, 2, kernel_size=1),
-            nn.Tanh()
+            nn.Conv2d(64, 2, kernel_size=1)
+#             nn.Tanh()
         )
 
     def forward(self, x, c):

@@ -22,8 +22,8 @@ PARAM_CHAIRS = {
 }
 
 BATCH_SIZE = 10
-N_EPOCHS = 20
-LR = 1e-3
+N_EPOCHS = 5
+LR = 1e-2
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
@@ -57,17 +57,15 @@ if __name__ == '__main__':
         'encoder': encoder(vae=False).to(DEVICE),
         'decoder': decoder().to(DEVICE)
     }
-#     print(model['encoder'])
-#     print(model['decoder'])
     params = []
     for m in model.values():
         params += list(m.parameters())
-    optimizer = optim.SGD(params, lr=LR, momentum=0.9, weight_decay=0.1)
+#     optimizer = optim.SGD(params, lr=LR, momentum=0.9, weight_decay=0.1)
+    optimizer = optim.Adam(params)
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=3)
     
-#     print(len(fc_train))
     # Training Procedure
     model, loss_record = train(model, fc_train, optimizer, scheduler, N_EPOCHS, batch_size=BATCH_SIZE)
-    torch.save(model['encoder'].state_dict(), 'saved/0802/weight_encoder.pt')
-    torch.save(model['decoder'].state_dict(), 'saved/0802/weight_decoder.pt')
-    plot.draw(loss_record ,'saved/0802/')
+    torch.save(model['encoder'].state_dict(), 'saved/0805/weight_encoder.pt')
+    torch.save(model['decoder'].state_dict(), 'saved/0805/weight_decoder.pt')
+    plot.draw(loss_record ,'saved/0805/')

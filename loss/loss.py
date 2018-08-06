@@ -19,6 +19,9 @@ def SmoothL1Loss(prediction, ground_truth):
     """
     return F.smooth_l1_loss(prediction, ground_truth)
 
+def L1Loss(prediction, ground_truth):
+    return F.l1_loss(prediction, ground_truth)
+
 def EdgeLoss(prediction, ground_truth):
     """
     Calculate GDL(gradient difference loss) between GT and prediction.
@@ -30,19 +33,21 @@ def EdgeLoss(prediction, ground_truth):
 
     # Define two filters
     x_filter = np.array([
-        [1, -1],
-        [1, -1]
+        [1, 0, -1],
+        [2, 0, -2],
+        [1, 0, -1]
     ])
     y_filter = np.array([
-        [1, 1],
-        [-1, -1]
+        [1, 2, 1],
+        [0, 0, 0],
+        [-1, -2, -1]
     ])
 
     # Create tensors from numpy and reshape to desired shape of tensor
     # (out_channel, in_channel, H, W)
-    x_filter = torch.from_numpy(x_filter).float().view(1, 1, 2, 2)
+    x_filter = torch.from_numpy(x_filter).float().view(1, 1, 3, 3)
     x_filter = x_filter.repeat(channel_out, channel_in, 1, 1).to(DEVICE)
-    y_filter = torch.from_numpy(y_filter).float().view(1, 1, 2, 2)
+    y_filter = torch.from_numpy(y_filter).float().view(1, 1, 3, 3)
     y_filter = y_filter.repeat(channel_out, channel_in, 1, 1).to(DEVICE)
 
     # Use convolution to get difference maps of prediction and GT.

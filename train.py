@@ -3,7 +3,7 @@ import copy
 import torch
 from tqdm import tqdm
 from torch.distributions.normal import Normal
-from loss import MSELoss, SmoothL1Loss, EdgeLoss
+from loss import MSELoss, SmoothL1Loss, EdgeLoss, L1Loss
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -27,7 +27,7 @@ def train_flow(model, flows, images):
     encoder, decoder = model['encoder'], model['decoder']
     z = encoder(flows, images)
     flows_recon = decoder(z, images)
-    return SmoothL1Loss(flows_recon, flows) + EdgeLoss(flows_recon, flows)
+    return MSELoss(flows_recon, flows)
 
 def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
     since = time.time()
@@ -54,7 +54,10 @@ def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
 
         # Iterate over dataloader
         for i, (img, flow) in enumerate(tqdm(dataloader, desc='Batch')):
-#             if i >= 10:
+            assert img.shape[1] == 3
+            assert flow.shape[1] == 2
+            
+#             if i >= 1000:
 #                 break
             img = img.to(DEVICE)
             flow = flow.to(DEVICE)
@@ -74,10 +77,10 @@ def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
 #                 print('z_loss: {}'.format(loss['z_loss'].item()))
 #                 print('recon_loss: {}'.format(loss['recon_loss'].item()))
                 # backward & optimize if phase == train
-                total_loss = 0.001 * loss['z_loss'] + loss['recon_loss']
+                total_loss = 0 * loss['z_loss'] + loss['recon_loss']
                 total_loss.backward()
                 optimizer.step()
-                scheduler.step(total_loss)
+#                 scheduler.step(total_loss)
             
             for k in running_loss.keys():
                 running_loss[k] += loss[k].item()

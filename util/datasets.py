@@ -100,8 +100,8 @@ class Datasets(data.Dataset):
     def _flow_trans(self, flow):
         # To tensor, normalize, change channel
         # 1. normalize
-        flow[..., 0] = flow[..., 0] / flow.shape[1]
-        flow[..., 1] = flow[..., 1] / flow.shape[0]
+        flow[..., 0] = flow[..., 0] / 20.0
+        flow[..., 1] = flow[..., 1] / 20.0
         
         # 2. change channel
         flow = np.moveaxis(flow, -1, 0)
