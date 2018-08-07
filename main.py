@@ -7,6 +7,7 @@ import loss
 import numpy as np
 import torch
 import torch.optim as optim
+import os
 
 PARAM_SINTEL = {
     'train': '/home/julia0607/MPI-Sintel/new/training',
@@ -20,9 +21,10 @@ PARAM_CHAIRS = {
     'name': 'FlyingChairs',
     'dtype': 'image'
 }
+SAVED_PATH = './saved/0806/'
 
 BATCH_SIZE = 10
-N_EPOCHS = 5
+N_EPOCHS = 20
 LR = 1e-2
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -66,6 +68,8 @@ if __name__ == '__main__':
     
     # Training Procedure
     model, loss_record = train(model, fc_train, optimizer, scheduler, N_EPOCHS, batch_size=BATCH_SIZE)
-    torch.save(model['encoder'].state_dict(), 'saved/0805/weight_encoder.pt')
-    torch.save(model['decoder'].state_dict(), 'saved/0805/weight_decoder.pt')
-    plot.draw(loss_record ,'saved/0805/')
+    if not os.path.exists(SAVED_PATH):
+        os.makedirs(SAVED_PATH)
+    torch.save(model['encoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_encoder.pt'))
+    torch.save(model['decoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_decoder.pt'))
+    plot.draw(loss_record, SAVED_PATH)

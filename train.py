@@ -7,16 +7,21 @@ from loss import MSELoss, SmoothL1Loss, EdgeLoss, L1Loss
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-def train_z(model, images, batch_size):
+def train_z(model, images, batch_size, tmp):
     """
     Work flow:
     z -> decoder(z, lbl) -> flow -> encoder(flow, lbl) -> z_recon
     """
     encoder, decoder = model['encoder'], model['decoder']
+    # Get condition from images
+    _, c_2, c_4, c_8 = encoder(tmp, images)
+    c_2, c_4, c_8 = c_2.detach(), c_4.detach(), c_8.detach()
+    
+    # random noise
     z = Normal(torch.zeros(batch_size * 14 * 14), torch.ones(batch_size * 14 * 14)).sample()
     z = z.view(batch_size, 1, 14, 14).to(DEVICE)
-    flows = decoder(z, images)
-    z_recon = encoder(flows, images)
+    flows = decoder(z, images, c_2, c_4, c_8)
+    z_recon, _, _, _ = encoder(flows, images)
     return MSELoss(z_recon, z)
 
 def train_flow(model, flows, images):
@@ -25,8 +30,8 @@ def train_flow(model, flows, images):
     inputs(flow) -> encoder(input, lbl) -> z -> decoder(z, lbl) -> flow_recon
     """
     encoder, decoder = model['encoder'], model['decoder']
-    z = encoder(flows, images)
-    flows_recon = decoder(z, images)
+    z, c_2, c_4, c_8 = encoder(flows, images)
+    flows_recon = decoder(z, images, c_2, c_4, c_8)
     return MSELoss(flows_recon, flows)
 
 def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
@@ -72,7 +77,7 @@ def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
                 # TODO: build the flow of input and output on the model.
                 # output = model(inputs)
                 # loss = criterion(outputs, labels) ...
-                loss['z_loss'] = train_z(model, img, batch_size)
+                loss['z_loss'] = train_z(model, img, batch_size, flow)
                 loss['recon_loss'] = train_flow(model, flow, img)
 #                 print('z_loss: {}'.format(loss['z_loss'].item()))
 #                 print('recon_loss: {}'.format(loss['recon_loss'].item()))
