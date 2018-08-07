@@ -1,4 +1,4 @@
-from model import encoder, decoder
+from model import encoder, decoder, image_encoder
 from util import datasets, plot
 from torchvision import transforms
 from torch.utils.data import DataLoader
@@ -23,8 +23,8 @@ PARAM_CHAIRS = {
 }
 SAVED_PATH = './saved/0806/'
 
-BATCH_SIZE = 10
-N_EPOCHS = 20
+BATCH_SIZE = 20
+N_EPOCHS = 10
 LR = 1e-2
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -57,7 +57,8 @@ if __name__ == '__main__':
     # Build Model
     model = {
         'encoder': encoder(vae=False).to(DEVICE),
-        'decoder': decoder().to(DEVICE)
+        'decoder': decoder().to(DEVICE),
+        'image_encoder': image_encoder().to(DEVICE)
     }
     params = []
     for m in model.values():
@@ -72,4 +73,5 @@ if __name__ == '__main__':
         os.makedirs(SAVED_PATH)
     torch.save(model['encoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_encoder.pt'))
     torch.save(model['decoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_decoder.pt'))
+    torch.save(model['image_encoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_image_encoder.pt'))
     plot.draw(loss_record, SAVED_PATH)

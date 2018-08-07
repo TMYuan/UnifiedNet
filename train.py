@@ -1,45 +1,58 @@
 import time
 import copy
 import torch
+import torch.nn.functional as F
 from tqdm import tqdm
 from torch.distributions.normal import Normal
 from loss import MSELoss, SmoothL1Loss, EdgeLoss, L1Loss
 
+
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-def train_z(model, images, batch_size, tmp):
+def train_z(model, images, batch_size):
     """
     Work flow:
-    z -> decoder(z, lbl) -> flow -> encoder(flow, lbl) -> z_recon
+    conditions(image) -> image_encoder -> features
+    z -> decoder(z, features) -> flow -> encoder(flow, image) -> z_recon
     """
-    encoder, decoder = model['encoder'], model['decoder']
+    encoder, decoder, image_encoder = model['encoder'], model['decoder'], model['image_encoder']
     # Get condition from images
-    _, c_2, c_4, c_8 = encoder(tmp, images)
+    c_2, c_4, c_8 = image_encoder(images)
     c_2, c_4, c_8 = c_2.detach(), c_4.detach(), c_8.detach()
     
     # random noise
     z = Normal(torch.zeros(batch_size * 14 * 14), torch.ones(batch_size * 14 * 14)).sample()
     z = z.view(batch_size, 1, 14, 14).to(DEVICE)
-    flows = decoder(z, images, c_2, c_4, c_8)
-    z_recon, _, _, _ = encoder(flows, images)
+    flows, _, _, _ = decoder(z, images, c_2, c_4, c_8)
+    z_recon = encoder(flows, images)
     return MSELoss(z_recon, z)
 
 def train_flow(model, flows, images):
     """
     Work flow:
-    inputs(flow) -> encoder(input, lbl) -> z -> decoder(z, lbl) -> flow_recon
+    inputs(flow) -> encoder(input, lbl) -> z
+    conditions(images) -> image_encoder -> features
+    decoder(z, features) -> flow_recon
     """
-    encoder, decoder = model['encoder'], model['decoder']
-    z, c_2, c_4, c_8 = encoder(flows, images)
-    flows_recon = decoder(z, images, c_2, c_4, c_8)
-    return MSELoss(flows_recon, flows)
+    encoder, decoder, image_encoder = model['encoder'], model['decoder'], model['image_encoder']
+    z = encoder(flows, images)
+    c_2, c_4, c_8 = image_encoder(images)
+    flows_recon, r_2, r_4, r_8 = decoder(z, images, c_2, c_4, c_8)
+    return refinement(r_2, r_4, r_8, flows_recon, flows)
+
+def refinement(r_2, r_4, r_8, r, flows):
+    f_2 = F.avg_pool2d(flows, 2)
+    f_4 = F.avg_pool2d(flows, 4)
+    f_8 = F.avg_pool2d(flows, 8)
+    return MSELoss(r, flows) + MSELoss(r_2, f_2) + MSELoss(r_4, f_4) + MSELoss(r_8, f_8)
 
 def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
     since = time.time()
 
     best_weight = {
         'encoder' : copy.deepcopy(model['encoder'].state_dict()),
-        'decoder' : copy.deepcopy(model['decoder'].state_dict())
+        'decoder' : copy.deepcopy(model['decoder'].state_dict()),
+        'image_encoder': copy.deepcopy(model['image_encoder'].state_dict())
     }
     min_loss = float('inf')
     loss_record = {
@@ -51,6 +64,7 @@ def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
     
         model['encoder'].train()
         model['decoder'].train()
+        model['image_encoder'].train()
 
         running_loss = {
             'z_loss' : 0.0,
@@ -77,7 +91,7 @@ def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
                 # TODO: build the flow of input and output on the model.
                 # output = model(inputs)
                 # loss = criterion(outputs, labels) ...
-                loss['z_loss'] = train_z(model, img, batch_size, flow)
+                loss['z_loss'] = train_z(model, img, batch_size)
                 loss['recon_loss'] = train_flow(model, flow, img)
 #                 print('z_loss: {}'.format(loss['z_loss'].item()))
 #                 print('recon_loss: {}'.format(loss['recon_loss'].item()))
@@ -100,6 +114,7 @@ def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
             min_loss = epoch_loss
             best_weight['encoder'] = copy.deepcopy(model['encoder'].state_dict())
             best_weight['decoder'] = copy.deepcopy(model['decoder'].state_dict())
+            best_weight['image_encoder'] = copy.deepcopy(model['image_encoder'].state_dict())
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
@@ -108,4 +123,5 @@ def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
     # load best model weights
     model['encoder'].load_state_dict(best_weight['encoder'])
     model['decoder'].load_state_dict(best_weight['decoder'])
+    model['image_encoder'].load_state_dict(best_weight['image_encoder'])
     return model, loss_record

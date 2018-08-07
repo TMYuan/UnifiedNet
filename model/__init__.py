@@ -1,6 +1,7 @@
-from .model import encoder, decoder
+from .model import encoder, decoder, image_encoder
 
 __all__ = [
     'encoder',
-    'decoder'
+    'decoder',
+    'image_encoder'
 ]
