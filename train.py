@@ -2,6 +2,7 @@ import time
 import copy
 import torch
 import torch.nn.functional as F
+import numpy as np
 from tqdm import tqdm
 from torch.distributions.normal import Normal
 from loss import MSELoss, SmoothL1Loss, EdgeLoss, L1Loss
@@ -27,7 +28,7 @@ def train_z(model, images, batch_size):
     z_recon = encoder(flows, images)
     return MSELoss(z_recon, z)
 
-def train_flow(model, flows, images):
+def train_flow(model, flows, images, images_2):
     """
     Work flow:
     inputs(flow) -> encoder(input, lbl) -> z
@@ -38,13 +39,30 @@ def train_flow(model, flows, images):
     z = encoder(flows, images)
     c_2, c_4, c_8 = image_encoder(images)
     flows_recon, r_2, r_4, r_8 = decoder(z, images, c_2, c_4, c_8)
-    return refinement(r_2, r_4, r_8, flows_recon, flows)
+    return refinement(r_2, r_4, r_8, flows_recon, flows) + warp_loss(images, images_2, flows_recon)
 
 def refinement(r_2, r_4, r_8, r, flows):
     f_2 = F.avg_pool2d(flows, 2)
     f_4 = F.avg_pool2d(flows, 4)
     f_8 = F.avg_pool2d(flows, 8)
     return MSELoss(r, flows) + MSELoss(r_2, f_2) + MSELoss(r_4, f_4) + MSELoss(r_8, f_8)
+
+def warp_loss(img, img_2, flow):
+    # renormalize
+    flow = flow * 20.0
+    flow = flow / 224
+    
+    grid_x, grid_y = np.meshgrid(np.linspace(-1, 1, 224), np.linspace(-1, 1, 224))  # (h, w)
+    grid_x = torch.from_numpy(grid_x.astype('float32')).to(DEVICE)
+    grid_y = torch.from_numpy(grid_y.astype('float32')).to(DEVICE)
+    
+    grid = torch.stack((grid_x, grid_y), 2).unsqueeze(0).repeat(flow.shape[0], 1, 1, 1)
+    grid[..., 0] += flow[:, 0, ...]
+    grid[..., 1] += flow[:, 1, ...]
+    
+    img_warp = F.grid_sample(img_2, grid, padding_mode='border')
+    return MSELoss(img_warp, img)
+    
 
 def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
     since = time.time()
@@ -72,7 +90,7 @@ def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
         }
 
         # Iterate over dataloader
-        for i, (img, flow) in enumerate(tqdm(dataloader, desc='Batch')):
+        for i, (img, flow, img_2) in enumerate(tqdm(dataloader, desc='Batch')):
             assert img.shape[1] == 3
             assert flow.shape[1] == 2
             
@@ -80,6 +98,7 @@ def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
 #                 break
             img = img.to(DEVICE)
             flow = flow.to(DEVICE)
+            img_2 = img_2.to(DEVICE)
 #             print('img shape: {}'.format(img.shape))
 #             print('flow shape: {}'.format(flow.shape))
             # zero the parameter gradients
@@ -92,7 +111,7 @@ def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
                 # output = model(inputs)
                 # loss = criterion(outputs, labels) ...
                 loss['z_loss'] = train_z(model, img, batch_size)
-                loss['recon_loss'] = train_flow(model, flow, img)
+                loss['recon_loss'] = train_flow(model, flow, img, img_2)
 #                 print('z_loss: {}'.format(loss['z_loss'].item()))
 #                 print('recon_loss: {}'.format(loss['recon_loss'].item()))
                 # backward & optimize if phase == train

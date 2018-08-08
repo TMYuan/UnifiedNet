@@ -26,6 +26,7 @@ def readFlow(fn):
             # Reshape data into 3D array (columns, rows, bands)
             # The reshape here is for visualization, the original code is (w,h,2)
             data = np.resize(data, (int(h), int(w), 2))
+#             data = np.transpose(data, (1, 0, 2))
             return data
 
 def writeFlow(filename,uv,v=None):

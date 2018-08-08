@@ -30,6 +30,7 @@ def file_utils(root, dataset, dstype, iext):
 #     print(image_root)
     flow_list = []
     image_list = []
+    image_2_list = []
     
     if dataset == 'FlyingChairs':
         file_list = sorted(glob(flow_root + '/*.flo'))        
@@ -39,9 +40,11 @@ def file_utils(root, dataset, dstype, iext):
             fprefix = fbase[-9:-4]
             fnum = int(fbase[:5])
             img = os.path.join(image_root, "%05d"%fnum + "_img1" + '.ppm')
+            img2 = os.path.join(image_root, "%05d"%fnum + "_img2" + '.ppm')
             if not os.path.isfile(img) or not os.path.isfile(file):
                 continue
             image_list += [img]
+            image_2_list += [img2]
             flow_list += [file]
         
     elif dataset == 'MPISintel':    
@@ -70,29 +73,32 @@ def file_utils(root, dataset, dstype, iext):
 #     print(image_list)
 #     print(flow_list)
         
-    return image_list, flow_list
+    return image_list, flow_list, image_2_list
 
 class Datasets(data.Dataset):
     def __init__(self, root = '',dataset='others', dstype='image', iext='.jpg', img_size = 56, transforms = None):
         self.transforms = transforms
         self.img_size = img_size
-        self.image_list, self.flow_list = file_utils(root, dataset, dstype, iext)            
+        self.image_list, self.flow_list, self.image_2_list = file_utils(root, dataset, dstype, iext)            
         self.size = len(self.image_list)
         assert (len(self.image_list) == len(self.flow_list))
         
     def __getitem__(self, index):
         index = index % self.size
         img = cv2.imread(self.image_list[index])
+        img2 = cv2.imread(self.image_2_list[index])
         flow = readFlow(self.flow_list[index]).astype('float32')
 #         flow = np.transpose(flow.astype(np.float32), (1, 2, 0))
 
         img = cv2.resize(img, (self.img_size,self.img_size))
+        img2 = cv2.resize(img2, (self.img_size,self.img_size))
         flow = cv2.resize(flow, (self.img_size,self.img_size))
         
         if self.transforms is not None:
             img = self.transforms(img)
+            img2 = self.transforms(img2)
             flow = self._flow_trans(flow)
-        return img, flow
+        return img, flow, img2
     
     def __len__(self):
         return self.size
