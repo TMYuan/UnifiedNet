@@ -1,4 +1,4 @@
-from model import encoder, decoder, image_encoder
+from model import encoder, decoder, image_encoder, discriminator
 from util import datasets, plot
 from torchvision import transforms
 from torch.utils.data import DataLoader
@@ -24,7 +24,7 @@ PARAM_CHAIRS = {
 SAVED_PATH = './saved/0806/'
 
 BATCH_SIZE = 20
-N_EPOCHS = 10
+N_EPOCHS = 5
 LR = 1e-2
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -58,14 +58,18 @@ if __name__ == '__main__':
     model = {
         'encoder': encoder(vae=False).to(DEVICE),
         'decoder': decoder().to(DEVICE),
-        'image_encoder': image_encoder().to(DEVICE)
+        'image_encoder': image_encoder().to(DEVICE),
+        'discriminator' : discriminator().to(DEVICE)
     }
     params = []
-    for m in model.values():
-        params += list(m.parameters())
+    for k in ['encoder', 'decoder', 'image_encoder']:
+        params += list(model[k].parameters())
 #     optimizer = optim.SGD(params, lr=LR, momentum=0.9, weight_decay=0.1)
-    optimizer = optim.Adam(params)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=3)
+    optimizer = {
+        'G' : optim.Adam(params),
+        'D' : optim.Adam(model['discriminator'].parameters(), lr=1e-5)
+    }
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer['G'], patience=3)
     
     # Training Procedure
     model, loss_record = train(model, fc_train, optimizer, scheduler, N_EPOCHS, batch_size=BATCH_SIZE)
@@ -74,4 +78,5 @@ if __name__ == '__main__':
     torch.save(model['encoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_encoder.pt'))
     torch.save(model['decoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_decoder.pt'))
     torch.save(model['image_encoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_image_encoder.pt'))
+    torch.save(model['discriminator'].state_dict(), os.path.join(SAVED_PATH, 'weight_discriminator.pt'))
     plot.draw(loss_record, SAVED_PATH)

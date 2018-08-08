@@ -116,9 +116,9 @@ class Decoder(nn.Module):
 
     def forward(self, x, c, c_2, c_4, c_8):
         # c_{} means down-sampling factor
-        i_2 = F.avg_pool2d(c, 2)
-        i_4 = F.avg_pool2d(c, 4)
-        i_8 = F.avg_pool2d(c, 8)
+#         i_2 = F.avg_pool2d(c, 2)
+#         i_4 = F.avg_pool2d(c, 4)
+#         i_8 = F.avg_pool2d(c, 8)
 
         r_8 = self.block1(x)
         r_4 = self.block2(torch.cat([r_8, c_8], 1))
@@ -127,10 +127,10 @@ class Decoder(nn.Module):
         x = self.final_conv(torch.cat([r, c], 1))
         
         # refinement
-        r_8 = self.rf1(torch.cat([r_8, i_8], 1))
-        r_4 = self.rf2(torch.cat([r_4, i_4], 1))
-        r_2 = self.rf3(torch.cat([r_2, i_2], 1))
-        return x, r_2, r_4, r_8
+#         r_8 = self.rf1(torch.cat([r_8, i_8], 1))
+#         r_4 = self.rf2(torch.cat([r_4, i_4], 1))
+#         r_2 = self.rf3(torch.cat([r_2, i_2], 1))
+        return x
     
 class ImageEncoder(nn.Module):
     """
@@ -156,6 +156,44 @@ class ImageEncoder(nn.Module):
         c_4 = self.f2(c_2)
         c_8 = self.f3(c_4)
         return c_2, c_4, c_8
+    
+class Discriminator(nn.Module):
+    def __init__(self):
+        super(Discriminator, self).__init__()
+        self.conv1 = nn.Conv2d(2, 64, kernel_size=7, stride=2, padding=3)
+        self.bn1 = nn.BatchNorm2d(64)
+        self.pool1 = nn.MaxPool2d(kernel_size=3)
+        
+        self.conv2 = nn.Conv2d(64, 128, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm2d(128)
+        self.pool2 = nn.MaxPool2d(kernel_size=3)
+        
+        self.conv3 = nn.Conv2d(128, 256, kernel_size=3, padding=1)
+        self.bn3 = nn.BatchNorm2d(256)
+        self.pool3 = nn.MaxPool2d(kernel_size=3)
+        
+        self.fc = nn.Linear(256*4*4, 1)
+    def forward(self, x):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = F.relu(x)
+        x = self.pool1(x)
+        
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = F.relu(x)
+        x = self.pool2(x)
+        
+        x = self.conv3(x)
+        x = self.bn3(x)
+        x = F.relu(x)
+        x = self.pool3(x)
+        
+#         print(x.shape)
+        x = x.view(x.size(0), -1)
+        x = self.fc(x)
+        x = F.sigmoid(x)
+        return x
 
 def encoder(**kwargs):
     return Encoder(**kwargs)
@@ -165,6 +203,9 @@ def decoder(**kwargs):
 
 def image_encoder(**kwargs):
     return ImageEncoder(**kwargs)
+
+def discriminator(**kwargs):
+    return Discriminator(**kwargs)
 
 if __name__ == '__main__':
     model = Decoder()

@@ -2,6 +2,7 @@ import time
 import copy
 import torch
 import torch.nn.functional as F
+import os
 from tqdm import tqdm
 from torch.distributions.normal import Normal
 from loss import MSELoss, SmoothL1Loss, EdgeLoss, L1Loss
@@ -23,7 +24,7 @@ def train_z(model, images, batch_size):
     # random noise
     z = Normal(torch.zeros(batch_size * 14 * 14), torch.ones(batch_size * 14 * 14)).sample()
     z = z.view(batch_size, 1, 14, 14).to(DEVICE)
-    flows, _, _, _ = decoder(z, images, c_2, c_4, c_8)
+    flows = decoder(z, images, c_2, c_4, c_8)
     z_recon = encoder(flows, images)
     return MSELoss(z_recon, z)
 
@@ -34,11 +35,33 @@ def train_flow(model, flows, images):
     conditions(images) -> image_encoder -> features
     decoder(z, features) -> flow_recon
     """
-    encoder, decoder, image_encoder = model['encoder'], model['decoder'], model['image_encoder']
+    encoder, decoder, image_encoder, D = model['encoder'], model['decoder'], model['image_encoder'], model['discriminator']
     z = encoder(flows, images)
     c_2, c_4, c_8 = image_encoder(images)
-    flows_recon, r_2, r_4, r_8 = decoder(z, images, c_2, c_4, c_8)
-    return refinement(r_2, r_4, r_8, flows_recon, flows)
+    flows_recon = decoder(z, images, c_2, c_4, c_8)
+    return MSELoss(flows_recon, flows) + train_G(D, flows_recon)
+
+def train_D(model, flows, images):
+    # generate flow_recon
+    encoder, decoder, image_encoder, D = model['encoder'], model['decoder'], model['image_encoder'], model['discriminator']
+    z = encoder(flows, images)
+    c_2, c_4, c_8 = image_encoder(images)
+    flows_recon = decoder(z, images, c_2, c_4, c_8)
+    
+    # catch flow_recon and input to D
+    flows_recon = flows_recon.detach()
+    pred_fake = D(flows_recon)
+    pred_real = D(flows)
+    
+    lbl_fake = torch.empty_like(pred_fake).fill_(0)
+    lbl_real = torch.empty_like(pred_real).fill_(1)
+    return 0.5 * (F.binary_cross_entropy(pred_fake, lbl_fake) + F.binary_cross_entropy(pred_real, lbl_real))
+
+def train_G(D, flows_recon):
+    pred = D(flows_recon)
+    lbl = torch.empty_like(pred).fill_(1)
+    return F.binary_cross_entropy(pred, lbl)
+
 
 def refinement(r_2, r_4, r_8, r, flows):
     f_2 = F.avg_pool2d(flows, 2)
@@ -49,57 +72,60 @@ def refinement(r_2, r_4, r_8, r, flows):
 def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
     since = time.time()
 
-    best_weight = {
-        'encoder' : copy.deepcopy(model['encoder'].state_dict()),
-        'decoder' : copy.deepcopy(model['decoder'].state_dict()),
-        'image_encoder': copy.deepcopy(model['image_encoder'].state_dict())
-    }
+#     best_weight = {
+#         'encoder' : copy.deepcopy(model['encoder'].state_dict()),
+#         'decoder' : copy.deepcopy(model['decoder'].state_dict()),
+#         'image_encoder': copy.deepcopy(model['image_encoder'].state_dict())
+#     }
     min_loss = float('inf')
     loss_record = {
         'z_loss' : [],
         'recon_loss' : [],
-        'total_loss' : []
+        'total_loss' : [],
+        'D_loss' : []
     }
     for epoch in tqdm(range(n_epochs), desc='Epoch'):
-    
+        
         model['encoder'].train()
         model['decoder'].train()
         model['image_encoder'].train()
+        model['discriminator'].train()
 
         running_loss = {
             'z_loss' : 0.0,
-            'recon_loss' : 0.0 
+            'recon_loss' : 0.0,
+            'D_loss' : 0.0
         }
 
         # Iterate over dataloader
         for i, (img, flow) in enumerate(tqdm(dataloader, desc='Batch')):
             assert img.shape[1] == 3
             assert flow.shape[1] == 2
-            
-#             if i >= 1000:
+#             if i >= 5:
 #                 break
             img = img.to(DEVICE)
             flow = flow.to(DEVICE)
-#             print('img shape: {}'.format(img.shape))
-#             print('flow shape: {}'.format(flow.shape))
-            # zero the parameter gradients
-            optimizer.zero_grad()
+            
             
             # Forwarding and track history only when training
             loss = {}
             with torch.set_grad_enabled(True):
-                # TODO: build the flow of input and output on the model.
-                # output = model(inputs)
-                # loss = criterion(outputs, labels) ...
+                # Training generator
+                optimizer['G'].zero_grad()
                 loss['z_loss'] = train_z(model, img, batch_size)
                 loss['recon_loss'] = train_flow(model, flow, img)
-#                 print('z_loss: {}'.format(loss['z_loss'].item()))
-#                 print('recon_loss: {}'.format(loss['recon_loss'].item()))
                 # backward & optimize if phase == train
-                total_loss = 0 * loss['z_loss'] + loss['recon_loss']
-                total_loss.backward()
-                optimizer.step()
-#                 scheduler.step(total_loss)
+                loss_G = 0 * loss['z_loss'] + loss['recon_loss']
+                loss_G.backward()
+                optimizer['G'].step()
+
+                # Training D
+                optimizer['D'].zero_grad()
+                loss['D_loss'] = train_D(model, flow, img)
+                loss['D_loss'].backward()
+                optimizer['D'].step()
+                
+                
             
             for k in running_loss.keys():
                 running_loss[k] += loss[k].item()
@@ -108,20 +134,26 @@ def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
         epoch_loss = sum(running_loss.values()) / len(dataloader)
         loss_record['total_loss'].append(epoch_loss)
         print('No.{} total loss: {:.4f}, '.format(epoch, epoch_loss), end='')
-        print('z_loss: {:.4f}, recon_loss: {:4f}'.format(running_loss['z_loss']/len(dataloader), running_loss['recon_loss']/len(dataloader)))
+        print('z_loss: {:.4f}, recon_loss: {:4f}, D_loss: {:4f}'.format(running_loss['z_loss']/len(dataloader), running_loss['recon_loss']/len(dataloader), running_loss['D_loss']/len(dataloader)))
+        
+        SAVED_PATH = 'saved/0808/'
+        torch.save(model['encoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_encoder.pt'))
+        torch.save(model['decoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_decoder.pt'))
+        torch.save(model['image_encoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_image_encoder.pt'))
+        torch.save(model['discriminator'].state_dict(), os.path.join(SAVED_PATH, 'weight_discriminator.pt'))
         # deep copy the model
-        if epoch_loss < min_loss:
-            min_loss = epoch_loss
-            best_weight['encoder'] = copy.deepcopy(model['encoder'].state_dict())
-            best_weight['decoder'] = copy.deepcopy(model['decoder'].state_dict())
-            best_weight['image_encoder'] = copy.deepcopy(model['image_encoder'].state_dict())
+#         if epoch_loss < min_loss:
+#             min_loss = epoch_loss
+#             best_weight['encoder'] = copy.deepcopy(model['encoder'].state_dict())
+#             best_weight['decoder'] = copy.deepcopy(model['decoder'].state_dict())
+#             best_weight['image_encoder'] = copy.deepcopy(model['image_encoder'].state_dict())
 
-    time_elapsed = time.time() - since
-    print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
-    print('Minimun Loss: {:4f}'.format(min_loss))
+#     time_elapsed = time.time() - since
+#     print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
+#     print('Minimun Loss: {:4f}'.format(min_loss))
 
     # load best model weights
-    model['encoder'].load_state_dict(best_weight['encoder'])
-    model['decoder'].load_state_dict(best_weight['decoder'])
-    model['image_encoder'].load_state_dict(best_weight['image_encoder'])
+#     model['encoder'].load_state_dict(best_weight['encoder'])
+#     model['decoder'].load_state_dict(best_weight['decoder'])
+#     model['image_encoder'].load_state_dict(best_weight['image_encoder'])
     return model, loss_record
