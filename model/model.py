@@ -49,7 +49,7 @@ class Decoder(nn.Module):
     def __init__(self):
         super(Decoder, self).__init__()
         self.block1 = nn.Sequential(
-            nn.Conv2d(1, 1024, kernel_size=1),
+            nn.Conv2d(1025, 1024, kernel_size=1),
             nn.BatchNorm2d(1024),
             nn.Conv2d(1024, 1024, kernel_size=3, padding=1),
             nn.BatchNorm2d(1024),
@@ -114,23 +114,23 @@ class Decoder(nn.Module):
             nn.Conv2d(32, 2, kernel_size=3, padding=1)
         )
 
-    def forward(self, x, c, c_2, c_4, c_8):
+    def forward(self, x, c, c_2, c_4, c_8, c_16):
         # c_{} means down-sampling factor
-        i_2 = F.avg_pool2d(c, 2)
-        i_4 = F.avg_pool2d(c, 4)
-        i_8 = F.avg_pool2d(c, 8)
+#         i_2 = F.avg_pool2d(c, 2)
+#         i_4 = F.avg_pool2d(c, 4)
+#         i_8 = F.avg_pool2d(c, 8)
 
-        r_8 = self.block1(x)
+        r_8 = self.block1(torch.cat([x, c_16], 1))
         r_4 = self.block2(torch.cat([r_8, c_8], 1))
         r_2 = self.block3(torch.cat([r_4, c_4], 1))
         r = self.block4(torch.cat([r_2, c_2], 1))
         x = self.final_conv(torch.cat([r, c], 1))
         
         # refinement
-        r_8 = self.rf1(torch.cat([r_8, i_8], 1))
-        r_4 = self.rf2(torch.cat([r_4, i_4], 1))
-        r_2 = self.rf3(torch.cat([r_2, i_2], 1))
-        return x, r_2, r_4, r_8
+#         r_8 = self.rf1(torch.cat([r_8, i_8], 1))
+#         r_4 = self.rf2(torch.cat([r_4, i_4], 1))
+#         r_2 = self.rf3(torch.cat([r_2, i_2], 1))
+        return x
     
 class ImageEncoder(nn.Module):
     """
@@ -155,7 +155,8 @@ class ImageEncoder(nn.Module):
         c_2 = self.f1(torch.cat([x], 1))
         c_4 = self.f2(c_2)
         c_8 = self.f3(c_4)
-        return c_2, c_4, c_8
+        c_16 = self.f4(c_8)
+        return c_2, c_4, c_8, c_16
 
 def encoder(**kwargs):
     return Encoder(**kwargs)

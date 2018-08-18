@@ -21,7 +21,7 @@ PARAM_CHAIRS = {
     'name': 'FlyingChairs',
     'dtype': 'image'
 }
-SAVED_PATH = './saved/0806/'
+SAVED_PATH = './saved/0811/'
 
 BATCH_SIZE = 20
 N_EPOCHS = 10
@@ -68,10 +68,11 @@ if __name__ == '__main__':
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=3)
     
     # Training Procedure
-    model, loss_record = train(model, fc_train, optimizer, scheduler, N_EPOCHS, batch_size=BATCH_SIZE)
     if not os.path.exists(SAVED_PATH):
         os.makedirs(SAVED_PATH)
-    torch.save(model['encoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_encoder.pt'))
-    torch.save(model['decoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_decoder.pt'))
-    torch.save(model['image_encoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_image_encoder.pt'))
+    model, loss_record = train(model, fc_train, optimizer, scheduler, N_EPOCHS, batch_size=BATCH_SIZE, saved_path=SAVED_PATH)
+
+#     torch.save(model['encoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_encoder.pt'))
+#     torch.save(model['decoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_decoder.pt'))
+#     torch.save(model['image_encoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_image_encoder.pt'))
     plot.draw(loss_record, SAVED_PATH)
