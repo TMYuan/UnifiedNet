@@ -4,8 +4,10 @@ import cv2
 import torch
 import torch.utils.data as data
 import torchvision
+import imageio
 from glob import glob
 from .flow_utils import *
+from skimage.transform import resize
 
 def file_utils(root, dataset, dstype, iext):
     """
@@ -110,3 +112,29 @@ class Datasets(data.Dataset):
         flow = torch.from_numpy(flow)
         return flow
     
+class UCFDataset(data.Dataset):
+    def __init__(self, path='.', img_size=56, transforms=None):
+        self.transforms = transforms
+        self.img_size = img_size
+        self.video_list = sorted(glob(os.path.join(path, '*.avi')))
+        self.size = len(self.video_list)
+
+    def __len__(self):
+        return self.size
+    
+    def __getitem__(self, i):
+        # Get index
+        i = i % self.size
+        # Video reader
+        v = imageio.get_reader(self.video_list[i])
+        length = v.get_length()
+        # Random starting point
+        idx_r = np.random.randint(0, length - 2)
+        
+        img_1 = resize(v.get_data(idx_r), (224, 224), preserve_range=True).astype('uint8')
+        img_2 = resize(v.get_data(idx_r + 1), (224, 224), preserve_range=True).astype('uint8')
+        
+        if self.transforms is not None:
+            img_1 = self.transforms(img_1)
+            img_2 = self.transforms(img_2)
+        return img_1, img_2
