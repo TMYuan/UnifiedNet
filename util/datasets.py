@@ -113,7 +113,7 @@ class Datasets(data.Dataset):
         return flow
     
 class UCFDataset(data.Dataset):
-    def __init__(self, path='.', img_size=56, transforms=None):
+    def __init__(self, path='.', img_size=224, transforms=None):
         self.transforms = transforms
         self.img_size = img_size
         self.video_list = sorted(glob(os.path.join(path, '*.avi')))
@@ -131,10 +131,36 @@ class UCFDataset(data.Dataset):
         # Random starting point
         idx_r = np.random.randint(0, length - 2)
         
-        img_1 = resize(v.get_data(idx_r), (224, 224), preserve_range=True).astype('uint8')
-        img_2 = resize(v.get_data(idx_r + 1), (224, 224), preserve_range=True).astype('uint8')
+        img_1 = resize(v.get_data(idx_r), (self.img_size, self.img_size), preserve_range=True).astype('uint8')
+        img_2 = resize(v.get_data(idx_r + 1), (self.img_size, self.img_size), preserve_range=True).astype('uint8')
         
         if self.transforms is not None:
             img_1 = self.transforms(img_1)
             img_2 = self.transforms(img_2)
+        return img_1, img_2
+    
+class MNISTDataset(data.Dataset):
+    def __init__(self, path='.', img_size=224, transforms=None):
+        self.data = np.load(path).transpose((1, 0, 2, 3))
+        self.transforms = transforms
+        self.img_size = img_size
+        self.size = len(self.data)
+
+    def __len__(self):
+        return self.size
+    
+    def __getitem__(self, i):
+        # get index
+        i = i % self.size
+        # get length of each video
+        l = self.data.shape[1]
+        # random number
+        idx_r = np.random.randint(0, l - 2)
+        
+        img_1 = cv2.resize(self.data[i][idx_r], (self.img_size, self.img_size), interpolation=cv2.INTER_NEAREST).astype('uint8')
+        img_2 = cv2.resize(self.data[i][idx_r + 1], (self.img_size, self.img_size), interpolation=cv2.INTER_NEAREST).astype('uint8')
+        
+        if self.transforms is not None:
+            img_1 = self.transforms(img_1[..., np.newaxis])
+            img_2 = self.transforms(img_2[..., np.newaxis])
         return img_1, img_2
