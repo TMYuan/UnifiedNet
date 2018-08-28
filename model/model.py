@@ -15,7 +15,7 @@ class Encoder(nn.Module):
     """
     def __init__(self, vae=False):
         super(Encoder, self).__init__()
-        resnet = resnet50(False, num_classes=1000, input_channel=2)
+        resnet = resnet50(True, num_classes=1000, input_channel=2)
 
         self.features = nn.Sequential(*list(resnet.children())[:-3])
         self.vae = vae
