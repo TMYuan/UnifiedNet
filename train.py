@@ -14,8 +14,8 @@ def train_z(model, img_1, batch_size):
     z -> decoder(z, img_1) -> img_pred -> encoder(img_pred, img_1) -> z_recon
     """
     encoder, decoder = model['encoder'], model['decoder']
-    z = Normal(torch.zeros(batch_size * 1 * 14 * 14), torch.ones(batch_size * 1 * 14 * 14)).sample()
-    z = z.view(batch_size, 1, 14, 14).to(DEVICE)
+    z = Normal(torch.zeros(batch_size * 256 * 14 * 14), torch.ones(batch_size * 256 * 14 * 14)).sample()
+    z = z.view(batch_size, 256, 14, 14).to(DEVICE)
     img_pred = decoder(z, img_1)
     z_recon = encoder(img_pred, img_1)
     return MSELoss(z_recon, z)
@@ -73,7 +73,7 @@ def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
                 loss['z_loss'] = train_z(model, img_1, batch_size)
                 loss['recon_loss'] = train_flow(model, img_1, img_2)
 
-                total_loss = 0.001 * loss['z_loss'] + loss['recon_loss']
+                total_loss = 0 * loss['z_loss'] + loss['recon_loss']
                 total_loss.backward()
                 optimizer.step()
 #                 scheduler.step(total_loss)

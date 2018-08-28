@@ -22,7 +22,7 @@ PARAM_CHAIRS = {
     'dtype': 'image'
 }
 
-SAVED_PATH = 'saved/0828_2/'
+SAVED_PATH = 'saved/0828_3/'
 BATCH_SIZE = 10
 N_EPOCHS = 5
 LR = 1e-2

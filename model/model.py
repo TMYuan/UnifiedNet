@@ -22,7 +22,7 @@ class Encoder(nn.Module):
         if vae:
             self.final_conv = nn.Conv2d(1024, 2, kernel_size=3, padding=1)
         else:
-            self.final_conv = nn.Conv2d(1024, 1, kernel_size=3, padding=1)
+            self.final_conv = nn.Conv2d(1024, 256, kernel_size=3, padding=1)
         
     def forward(self, x, c):
         # TODO: Concat of flows and images
@@ -41,7 +41,7 @@ class Decoder(nn.Module):
     def __init__(self):
         super(Decoder, self).__init__()
         self.block1 = nn.Sequential(
-            nn.Conv2d(2, 1024, kernel_size=1),
+            nn.Conv2d(257, 1024, kernel_size=1),
             nn.BatchNorm2d(1024),
             nn.Conv2d(1024, 1024, kernel_size=3, padding=1),
             nn.BatchNorm2d(1024),
@@ -239,4 +239,4 @@ def encoder(**kwargs):
     return Encoder(**kwargs)
 
 def decoder(**kwargs):
-    return MNISTDecoder(**kwargs)
+    return Decoder(**kwargs)
