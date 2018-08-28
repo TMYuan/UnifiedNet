@@ -81,11 +81,11 @@ class Decoder(nn.Module):
             nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
         )
         self.final_conv = nn.Sequential(
-            nn.Conv2d(65, 32, kernel_size=1),
+            nn.Conv2d(65, 32, kernel_size=3, padding=1),
             nn.BatchNorm2d(32),
             nn.Conv2d(32, 8, kernel_size=3, padding=1),
             nn.BatchNorm2d(8),
-            nn.Conv2d(8, 1, kernel_size=1),
+            nn.Conv2d(8, 1, kernel_size=3, padding=1),
             nn.Sigmoid()
         )
 
