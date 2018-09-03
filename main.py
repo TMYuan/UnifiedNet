@@ -1,4 +1,4 @@
-from model import encoder, decoder
+from model import encoder, decoder, image_encoder
 from util import datasets, plot
 from torchvision import transforms
 from torch.utils.data import DataLoader
@@ -62,7 +62,8 @@ if __name__ == '__main__':
     # Build Model
     model = {
         'encoder': encoder(vae=False).to(DEVICE),
-        'decoder': decoder().to(DEVICE)
+        'decoder': decoder().to(DEVICE),
+        'image_encoder': image_encoder().to(DEVICE)
     }
     params = []
     for m in model.values():
@@ -75,4 +76,5 @@ if __name__ == '__main__':
     model, loss_record = train(model, m_train, optimizer, scheduler, N_EPOCHS, batch_size=BATCH_SIZE)
     torch.save(model['encoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_encoder.pt'))
     torch.save(model['decoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_decoder.pt'))
+    torch.save(model['decoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_image_encoder.pt'))
     plot.draw(loss_record, SAVED_PATH)
