@@ -30,7 +30,7 @@ def train_flow(model, img_1, img_2):
     c_list = image_encoder(img_1)
     z = encoder(img_2, img_1)
     img_pred = decoder(z, c_list)
-    return binary_cross_entropy(img_pred, img_2)
+    return 0.5 * binary_cross_entropy(img_pred, img_2) + 0.5 * l1_loss(img_pred, img_2)
 
 def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
     since = time.time()
