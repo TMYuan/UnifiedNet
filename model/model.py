@@ -41,37 +41,7 @@ class Decoder(nn.Module):
     def __init__(self):
         super(Decoder, self).__init__()
         self.block1 = nn.Sequential(
-            nn.Conv2d(1025, 512, kernel_size=1),
-            nn.BatchNorm2d(512),
-            nn.Conv2d(512, 512, kernel_size=3, padding=1),
-            nn.BatchNorm2d(512),
-            nn.Conv2d(512, 512, kernel_size=1),
-            nn.BatchNorm2d(512),
-#             nn.Tanh(),
-            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-        )
-        self.block2 = nn.Sequential(
-            nn.Conv2d(1024, 256, kernel_size=1),
-            nn.BatchNorm2d(256),
-            nn.Conv2d(256, 256, kernel_size=3, padding=1),
-            nn.BatchNorm2d(256),
-            nn.Conv2d(256, 256, kernel_size=1),
-            nn.BatchNorm2d(256),
-#             nn.Tanh(),
-            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-        )
-        self.block3 = nn.Sequential(
-            nn.Conv2d(512, 64, kernel_size=1),
-            nn.BatchNorm2d(64),
-            nn.Conv2d(64, 64, kernel_size=3, padding=1),
-            nn.BatchNorm2d(64),
-            nn.Conv2d(64, 64, kernel_size=1),
-            nn.BatchNorm2d(64),
-#             nn.Tanh(),
-            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-        )
-        self.block4 = nn.Sequential(
-            nn.Conv2d(128, 32, kernel_size=1),
+            nn.Conv2d(2, 32, kernel_size=1),
             nn.BatchNorm2d(32),
             nn.Conv2d(32, 32, kernel_size=3, padding=1),
             nn.BatchNorm2d(32),
@@ -80,22 +50,53 @@ class Decoder(nn.Module):
 #             nn.Tanh(),
             nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
         )
+        self.block2 = nn.Sequential(
+            nn.Conv2d(33, 64, kernel_size=1),
+            nn.BatchNorm2d(64),
+            nn.Conv2d(64, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
+            nn.Conv2d(64, 64, kernel_size=1),
+            nn.BatchNorm2d(64),
+#             nn.Tanh(),
+            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        )
+        self.block3 = nn.Sequential(
+            nn.Conv2d(65, 128, kernel_size=1),
+            nn.BatchNorm2d(128),
+            nn.Conv2d(128, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.Conv2d(128, 128, kernel_size=1),
+            nn.BatchNorm2d(128),
+#             nn.Tanh(),
+            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        )
+        self.block4 = nn.Sequential(
+            nn.Conv2d(129, 256, kernel_size=1),
+            nn.BatchNorm2d(256),
+            nn.Conv2d(256, 256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.Conv2d(256, 256, kernel_size=1),
+            nn.BatchNorm2d(256),
+#             nn.Tanh(),
+            nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        )
         self.final_conv = nn.Sequential(
-            nn.Conv2d(33, 16, kernel_size=1),
+            nn.Conv2d(257, 32, kernel_size=1),
+            nn.BatchNorm2d(32),
+            nn.Conv2d(32, 16, kernel_size=3, padding=1),
             nn.BatchNorm2d(16),
-            nn.Conv2d(16, 8, kernel_size=3, padding=1),
-            nn.BatchNorm2d(8),
-            nn.Conv2d(8, 1, kernel_size=1),
+            nn.Conv2d(16, 1, kernel_size=1),
             nn.Sigmoid()
         )
 
     def forward(self, x, c):
         # c_{} means down-sampling factor
-#         c_2 = F.avg_pool2d(c, 2)
-#         c_4 = F.avg_pool2d(c, 4)
-#         c_8 = F.avg_pool2d(c, 8)
-#         c_16 = F.avg_pool2d(c, 16)
-        c_1, c_2, c_4, c_8, c_16 = c
+        c_1 = c
+        c_2 = F.avg_pool2d(c, 2)
+        c_4 = F.avg_pool2d(c, 4)
+        c_8 = F.avg_pool2d(c, 8)
+        c_16 = F.avg_pool2d(c, 16)
+#         c_1, c_2, c_4, c_8, c_16 = c
 
         x = self.block1(torch.cat([x, c_16], 1))
         x = self.block2(torch.cat([x, c_8], 1))
