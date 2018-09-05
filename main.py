@@ -24,7 +24,7 @@ PARAM_CHAIRS = {
 
 SAVED_PATH = 'saved/0905_2/'
 BATCH_SIZE = 10
-N_EPOCHS = 5
+N_EPOCHS = 10
 LR = 1e-2
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
