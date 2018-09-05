@@ -22,7 +22,7 @@ PARAM_CHAIRS = {
     'dtype': 'image'
 }
 
-SAVED_PATH = 'saved/0903_1/'
+SAVED_PATH = 'saved/0905_2/'
 BATCH_SIZE = 10
 N_EPOCHS = 5
 LR = 1e-2
@@ -62,8 +62,8 @@ if __name__ == '__main__':
     # Build Model
     model = {
         'encoder': encoder(vae=False).to(DEVICE),
-        'decoder': decoder().to(DEVICE),
-        'image_encoder': image_encoder().to(DEVICE)
+        'decoder': decoder().to(DEVICE)
+#         'image_encoder': image_encoder().to(DEVICE)
     }
     params = []
     for m in model.values():
@@ -76,5 +76,5 @@ if __name__ == '__main__':
     model, loss_record = train(model, m_train, optimizer, scheduler, N_EPOCHS, batch_size=BATCH_SIZE)
     torch.save(model['encoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_encoder.pt'))
     torch.save(model['decoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_decoder.pt'))
-    torch.save(model['image_encoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_image_encoder.pt'))
+#     torch.save(model['image_encoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_image_encoder.pt'))
     plot.draw(loss_record, SAVED_PATH)
