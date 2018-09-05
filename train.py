@@ -76,7 +76,7 @@ def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
                 loss['z_loss'] = train_z(model, img_1, batch_size)
                 loss['recon_loss'] = train_flow(model, img_1, img_2)
 
-                total_loss = 0 * loss['z_loss'] + loss['recon_loss']
+                total_loss = 0.0001 * loss['z_loss'] + loss['recon_loss']
                 total_loss.backward()
                 optimizer.step()
 #                 scheduler.step(total_loss)
