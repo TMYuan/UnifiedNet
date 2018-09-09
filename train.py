@@ -30,7 +30,7 @@ def train_flow(model, img_1, img_2):
 #     c_list = image_encoder(img_1)
     z = encoder(img_2, img_1)
     img_pred = decoder(z, img_1)
-    return 0.9 * l1_loss(img_pred, img_2) + 0.1 * EdgeLoss(img_pred, img_2)
+    return l1_loss(img_pred, img_2), MSELoss(img_pred, img_2), EdgeLoss(img_pred, img_2)
 
 def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
     since = time.time()
@@ -42,7 +42,9 @@ def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
     min_loss = float('inf')
     loss_record = {
         'z_loss' : [],
-        'recon_loss' : [],
+        'l1' : [],
+        'l2' : [],
+        'edge' : [],
         'total_loss' : []
     }
     for epoch in tqdm(range(n_epochs), desc='Epoch'):
@@ -53,7 +55,9 @@ def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
 
         running_loss = {
             'z_loss' : 0.0,
-            'recon_loss' : 0.0 
+            'l1' : 0.0,
+            'l2' : 0.0,
+            'edge' : 0.0
         }
 
         # Iterate over dataloader
@@ -74,9 +78,9 @@ def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
             with torch.set_grad_enabled(True):
                 
                 loss['z_loss'] = train_z(model, img_1, batch_size)
-                loss['recon_loss'] = train_flow(model, img_1, img_2)
+                loss['l1'], loss['l2'], loss['edge'] = train_flow(model, img_1, img_2)
 
-                total_loss = 0.001 * loss['z_loss'] + loss['recon_loss']
+                total_loss = 0.001 * loss['z_loss'] + loss['l1'] + loss['l2'] + loss['edge']
                 total_loss.backward()
                 optimizer.step()
 #                 scheduler.step(total_loss)
@@ -88,7 +92,7 @@ def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
         epoch_loss = sum(running_loss.values()) / len(dataloader)
         loss_record['total_loss'].append(epoch_loss)
         print('No.{} total loss: {:.4f}, '.format(epoch, epoch_loss), end='')
-        print('z_loss: {:.4f}, recon_loss: {:4f}'.format(running_loss['z_loss']/len(dataloader), running_loss['recon_loss']/len(dataloader)))
+        print('z_loss: {:.4f}, l1: {:4f}, l2: {:4f}, edge: {:4f}'.format(running_loss['z_loss']/len(dataloader), running_loss['l1']/len(dataloader), running_loss['l2']/len(dataloader), running_loss['edge']/len(dataloader)))
         # deep copy the model
 #         if epoch_loss < min_loss:
 #             min_loss = epoch_loss
