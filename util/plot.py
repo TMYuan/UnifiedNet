@@ -10,7 +10,9 @@ def draw(record, path):
     """
     plt.ioff()
     for (k, i) in record.items():
-        plt.plot(range(len(i)), i)
+        plt.plot(range(len(i)), i, marker='o')
+        for x, y in zip(list(range(len(i))), i):
+            plt.text(x, y, '{:.4f}'.format(y))
         plt.title(k)
         plt.xlim(0, len(i))
         plt.ylim(0, max(i) * 1.2)
