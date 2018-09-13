@@ -32,6 +32,17 @@ def train_flow(model, img_1, img_2):
     img_pred = decoder(z, img_1)
     return l1_loss(img_pred, img_2), MSELoss(img_pred, img_2), EdgeLoss(img_pred, img_2)
 
+def train_vae(model, img_1, img_2):
+    """
+    This function is used to train vae based encoder
+    """
+    encoder, decoder = model['encoder'], model['decoder']
+    z, mu, log_var = encoder(img_2, img_1)
+    img_pred = decoder(z, img_1)
+    
+    kld = -0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp()) / (mu.size(0) * 1 * 14 * 14)
+    return kld, l1_loss(img_pred, img_2), MSELoss(img_pred, img_2), EdgeLoss(img_pred, img_2)
+
 def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
     since = time.time()
 
@@ -76,9 +87,11 @@ def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
             # Forwarding and track history only when training
             loss = {}
             with torch.set_grad_enabled(True):
-                
-                loss['z_loss'] = train_z(model, img_1, batch_size)
-                loss['l1'], loss['l2'], loss['edge'] = train_flow(model, img_1, img_2)
+                if model['encoder'].vae == False:
+                    loss['z_loss'] = train_z(model, img_1, batch_size)
+                    loss['l1'], loss['l2'], loss['edge'] = train_flow(model, img_1, img_2)
+                else:
+                    loss['z_loss'], loss['l1'], loss['l2'], loss['edge'] = train_vae(model, img_1, img_2)
 
                 total_loss = 0 * loss['z_loss'] + loss['l1'] + loss['l2'] + loss['edge']
                 total_loss.backward()
