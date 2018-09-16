@@ -166,21 +166,17 @@ def resnet50(pretrained=False, **kwargs):
         model.load_state_dict(pretrained_dict, strict=False)
     return model
 
-
-# def squeezenet1_1(pretrained=False, **kwargs):
-#     r"""SqueezeNet 1.1 model from the `official SqueezeNet repo
-#     <https://github.com/DeepScale/SqueezeNet/tree/master/SqueezeNet_v1.1>`_.
-#     SqueezeNet 1.1 has 2.4x less computation and slightly fewer parameters
-#     than SqueezeNet 1.0, without sacrificing accuracy.
-#     Args:
-#         pretrained (bool): If True, returns a model pre-trained on ImageNet
-#     """
-#     model = SqueezeNet(version=1.1, **kwargs)
-#     if pretrained:
-#         model_dict = model.state_dict()
-#         pretrained_dict = model_zoo.load_url(model_urls['squeezenet1_1'])
-#         for k in model_dict.keys():
-#             if model_dict[k].size != pretrained_dict[k].size:
-#                 del pretrained_dict[k]
-#         model.load_state_dict(pretrained_dict, strict=False)
-#     return model
+def resnet18(pretrained=False, **kwargs):
+    """Constructs a ResNet-18 model.
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+    """
+    model = ResNet(BasicBlock, [2, 2, 2, 2], **kwargs)
+    if pretrained:
+        model_dict = model.state_dict()
+        pretrained_dict = model_zoo.load_url(model_urls['resnet18'])
+        for k in model_dict.keys():
+            if model_dict[k].size != pretrained_dict[k].size:
+                del pretrained_dict[k]
+        model.load_state_dict(pretrained_dict, strict=False)
+    return model

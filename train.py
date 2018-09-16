@@ -14,8 +14,8 @@ def train_z(model, img_1, batch_size):
     z -> decoder(z, img_1) -> img_pred -> encoder(img_pred, img_1) -> z_recon
     """
     encoder, decoder = model['encoder'], model['decoder']
-    z = Normal(torch.zeros(batch_size * 1 * 14 * 14), torch.ones(batch_size * 1 * 14 * 14)).sample()
-    z = z.view(batch_size, 1, 14, 14).to(DEVICE)
+    z = Normal(torch.zeros(batch_size * 32 * 8 * 8), torch.ones(batch_size * 32 * 8 * 8)).sample()
+    z = z.view(batch_size, 32, 8, 8).to(DEVICE)
 #     c_list = image_encoder(img_1)
     img_pred = decoder(z, img_1)
     z_recon = encoder(img_pred, img_1)

@@ -22,7 +22,7 @@ PARAM_CHAIRS = {
     'dtype': 'image'
 }
 
-SAVED_PATH = 'saved/0912_1/'
+SAVED_PATH = 'saved/0916_1/'
 BATCH_SIZE = 10
 N_EPOCHS = 5
 LR = 1e-2
@@ -56,13 +56,13 @@ if __name__ == '__main__':
     if not os.path.exists(SAVED_PATH):
         os.makedirs(SAVED_PATH)
     trans = transforms.ToTensor()
-    m_dataset = datasets.MNISTDataset('./data/mnist_test_seq.npy', transforms=trans, img_size=224)
+    m_dataset = datasets.MNISTDataset('./data/mnist_test_seq.npy', transforms=trans, img_size=64)
     m_train = DataLoader(dataset=m_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
     # Build Model
     model = {
         'encoder': encoder(vae=False).to(DEVICE),
-        'decoder': decoder().to(DEVICE)
+        'decoder': decoder(f_extracter=True).to(DEVICE),
 #         'image_encoder': image_encoder().to(DEVICE)
     }
     params = []
