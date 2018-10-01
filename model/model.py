@@ -3,6 +3,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 from .pretrain import resnet50, resnet18
 
+class Flatten(nn.Module):
+    def __init__(self):
+        super(Flatten, self).__init__()
+
+    def forward(self, x):
+        x = x.view(x.size(0), -1)
+        return x
+
 class Encoder(nn.Module):
     """
     This module is used to encode optical flow & images(5 channels)
@@ -13,16 +21,20 @@ class Encoder(nn.Module):
     224*224 -> 14*14
     ***
     """
-    def __init__(self, vae=False):
+    def __init__(self, channel_in, vae=False):
         super(Encoder, self).__init__()
-        resnet = resnet18(True, num_classes=1000, input_channel=2)
+        resnet = resnet18(True, num_classes=1, input_channel=channel_in)
 
         self.features = nn.Sequential(*list(resnet.children())[:-4])
         self.vae = vae
         if vae:
             self.final_conv = nn.Conv2d(1024, 2, kernel_size=3, padding=1)
         else:
-            self.final_conv = nn.Conv2d(128, 32, kernel_size=3, padding=1)
+            self.final_conv = nn.Sequential(
+                nn.Conv2d(128, 32, kernel_size=3, padding=1),
+#                 Flatten(),
+#                 nn.Linear(32*8*8, 2000)
+            )
 
     def reparameterize(self, mu, log_var):
         if self.training:
@@ -108,9 +120,9 @@ class ImageEncoder(nn.Module):
     224*224 -> 14*14
     ***
     """
-    def __init__(self):
+    def __init__(self, channel_in):
         super(ImageEncoder, self).__init__()
-        resnet = resnet18(True, num_classes=1000, input_channel=1)
+        resnet = resnet18(True, num_classes=1, input_channel=channel_in)
 
         self.f1 = nn.Sequential(*list(resnet.children())[:3])
         self.f2 = nn.Sequential(*list(resnet.children())[3:5])
@@ -170,10 +182,11 @@ class MNISTDecoder(nn.Module):
     Input: latent variable and img_1
     ***
     """
-    def __init__(self, f_extracter=False):
+    def __init__(self, channel_in, f_extracter=False):
         super(MNISTDecoder, self).__init__()
         self.f_extracter = f_extracter
-        self.img_encoder = image_encoder()
+        self.img_encoder = image_encoder(channel_in= channel_in)
+        self.back = nn.Linear(2000, 32*8*8)
         if f_extracter:
             self.model = [
                 self._make_block(160, 64),
@@ -189,11 +202,12 @@ class MNISTDecoder(nn.Module):
                 self._make_block(65, 32)
             ]
         self.model += [nn.Sequential(
-            nn.Conv2d(33, 16, kernel_size=3, padding=1),
+            nn.Conv2d(35, 16, kernel_size=3, padding=1),
             nn.BatchNorm2d(16),
             nn.Conv2d(16, 8, kernel_size=3, padding=1),
             nn.BatchNorm2d(8),
-            nn.Conv2d(8, 1, kernel_size=1),
+            nn.Conv2d(8, 3, kernel_size=3, padding=1),
+#             nn.Tanh()
             nn.Sigmoid()
         )]
         self.model = nn.ModuleList(self.model)
@@ -221,7 +235,9 @@ class MNISTDecoder(nn.Module):
         else:
             for i in reversed(range(5)):
                 c_list.append(F.avg_pool2d(c, 2 ** i))
-
+        
+#         x = self.back(x)
+#         x = x.view(x.size(0), 32, 8, 8)
         for c_i, m_i in zip(c_list, self.model):
             x = m_i(torch.cat([x, c_i], 1))
         return x

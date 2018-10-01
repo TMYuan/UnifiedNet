@@ -139,6 +139,33 @@ class UCFDataset(data.Dataset):
             img_2 = self.transforms(img_2)
         return img_1, img_2
     
+class KTHDataset(data.Dataset):
+    def __init__(self, path='.', img_size=64, transforms=None):
+        self.transforms = transforms
+        self.img_size = img_size
+        self.video_list = sorted(glob(os.path.join(path, '**','*.avi'), recursive=True))
+        self.size = len(self.video_list)
+
+    def __len__(self):
+        return self.size
+    
+    def __getitem__(self, i):
+        # Get index
+        i = i % self.size
+        # Video reader
+        v = imageio.get_reader(self.video_list[i])
+        length = v.get_length()
+        # Random starting point
+        idx_r = np.random.randint(0, length - 2)
+        
+        img_1 = resize(v.get_data(idx_r), (self.img_size, self.img_size), preserve_range=True, mode='reflect').astype('uint8')
+        img_2 = resize(v.get_data(idx_r + 1), (self.img_size, self.img_size), preserve_range=True, mode='reflect').astype('uint8')
+        
+        if self.transforms is not None:
+            img_1 = self.transforms(img_1)
+            img_2 = self.transforms(img_2)
+        return img_1, img_2
+    
 class MNISTDataset(data.Dataset):
     def __init__(self, path='.', img_size=224, transforms=None):
         self.data = np.load(path).transpose((1, 0, 2, 3))

@@ -22,9 +22,9 @@ PARAM_CHAIRS = {
     'dtype': 'image'
 }
 
-SAVED_PATH = 'saved/0916_1/'
+SAVED_PATH = 'saved/0930_2/'
 BATCH_SIZE = 10
-N_EPOCHS = 5
+N_EPOCHS = 10
 LR = 1e-2
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -48,21 +48,22 @@ def prepare_data(param, transformation):
 
 if __name__ == '__main__':
     # Prepare dataloader
-#     trans = transforms.Compose([
-#                 transforms.ToTensor(),
-#                 transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
-#             ])
-#     fc_train, _ = prepare_data(PARAM_CHAIRS, trans)
+    trans = transforms.Compose([
+                transforms.ToTensor(),
+#                 transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
+            ])
+    kth_dataset = datasets.KTHDataset('./data/kth/raw', transforms=trans, img_size=64)
+    kth_train = DataLoader(dataset=kth_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
     if not os.path.exists(SAVED_PATH):
         os.makedirs(SAVED_PATH)
-    trans = transforms.ToTensor()
-    m_dataset = datasets.MNISTDataset('./data/mnist_test_seq.npy', transforms=trans, img_size=64)
-    m_train = DataLoader(dataset=m_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+#     trans = transforms.ToTensor()
+#     m_dataset = datasets.MNISTDataset('./data/mnist_test_seq.npy', transforms=trans, img_size=64)
+#     m_train = DataLoader(dataset=m_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
     # Build Model
     model = {
-        'encoder': encoder(vae=False).to(DEVICE),
-        'decoder': decoder(f_extracter=True).to(DEVICE),
+        'encoder': encoder(channel_in=6, vae=False).to(DEVICE),
+        'decoder': decoder(channel_in=3, f_extracter=True).to(DEVICE),
 #         'image_encoder': image_encoder().to(DEVICE)
     }
     params = []
@@ -73,7 +74,7 @@ if __name__ == '__main__':
     scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=3)
     
     # Training Procedure
-    model, loss_record = train(model, m_train, optimizer, scheduler, N_EPOCHS, batch_size=BATCH_SIZE)
+    model, loss_record = train(model, kth_train, optimizer, scheduler, N_EPOCHS, batch_size=BATCH_SIZE)
     torch.save(model['encoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_encoder.pt'))
     torch.save(model['decoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_decoder.pt'))
 #     torch.save(model['image_encoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_image_encoder.pt'))
