@@ -22,10 +22,10 @@ PARAM_CHAIRS = {
     'dtype': 'image'
 }
 
-SAVED_PATH = 'saved/0930_2/'
+SAVED_PATH = 'saved/1008_3/'
 BATCH_SIZE = 10
-N_EPOCHS = 10
-LR = 1e-2
+N_EPOCHS = 30
+LR = 1e-3
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 

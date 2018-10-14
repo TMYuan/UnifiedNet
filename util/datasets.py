@@ -156,10 +156,11 @@ class KTHDataset(data.Dataset):
         v = imageio.get_reader(self.video_list[i])
         length = v.get_length()
         # Random starting point
-        idx_r = np.random.randint(0, length - 2)
+        idx_1 = np.random.randint(0, length - 2)
+        idx_2 = np.random.randint(idx_1, length - 2)
         
-        img_1 = resize(v.get_data(idx_r), (self.img_size, self.img_size), preserve_range=True, mode='reflect').astype('uint8')
-        img_2 = resize(v.get_data(idx_r + 1), (self.img_size, self.img_size), preserve_range=True, mode='reflect').astype('uint8')
+        img_1 = resize(v.get_data(idx_1), (self.img_size, self.img_size), preserve_range=True, mode='reflect').astype('uint8')
+        img_2 = resize(v.get_data(idx_2), (self.img_size, self.img_size), preserve_range=True, mode='reflect').astype('uint8')
         
         if self.transforms is not None:
             img_1 = self.transforms(img_1)

@@ -10,6 +10,19 @@ class Flatten(nn.Module):
     def forward(self, x):
         x = x.view(x.size(0), -1)
         return x
+    
+class basic_conv(nn.Module):
+    def __init__(self, c_in, c_out):
+        super(basic_conv, self).__init__()
+        self.model = nn.Sequential(
+            nn.Conv2d(c_in, c_out),
+            nn.BatchNorm2d(c_out),
+            nn.LeakyReLU(0.2, inplace=True),
+        )
+        
+    def forward(self, x):
+        x = self.model(x)
+        return x
 
 class Encoder(nn.Module):
     """
@@ -47,7 +60,7 @@ class Encoder(nn.Module):
     def forward(self, x, c):
         # TODO: Concat of flows and images
         x = self.features(torch.cat([x, c], 1))
-        x = self.final_conv(x)
+#         x = self.final_conv(x)
         if self.vae:
             mu, log_var = torch.split(x, 1, 1)
             z = self.reparameterize(mu, log_var)
@@ -186,12 +199,11 @@ class MNISTDecoder(nn.Module):
         super(MNISTDecoder, self).__init__()
         self.f_extracter = f_extracter
         self.img_encoder = image_encoder(channel_in= channel_in)
-        self.back = nn.Linear(2000, 32*8*8)
         if f_extracter:
             self.model = [
-                self._make_block(160, 64),
                 self._make_block(128, 64),
-                self._make_block(128, 32)
+                self._make_block(64, 64),
+                self._make_block(64, 3)
 #                 self._make_block(128, 32)
             ]
         else:
@@ -202,12 +214,7 @@ class MNISTDecoder(nn.Module):
                 self._make_block(65, 32)
             ]
         self.model += [nn.Sequential(
-            nn.Conv2d(35, 16, kernel_size=3, padding=1),
-            nn.BatchNorm2d(16),
-            nn.Conv2d(16, 8, kernel_size=3, padding=1),
-            nn.BatchNorm2d(8),
-            nn.Conv2d(8, 3, kernel_size=3, padding=1),
-#             nn.Tanh()
+            nn.Conv2d(6, 3, kernel_size=1),
             nn.Sigmoid()
         )]
         self.model = nn.ModuleList(self.model)
@@ -236,12 +243,85 @@ class MNISTDecoder(nn.Module):
             for i in reversed(range(5)):
                 c_list.append(F.avg_pool2d(c, 2 ** i))
         
-#         x = self.back(x)
-#         x = x.view(x.size(0), 32, 8, 8)
-        for c_i, m_i in zip(c_list, self.model):
-            x = m_i(torch.cat([x, c_i], 1))
+        for idx, (c_i, m_i) in enumerate(zip(c_list, self.model)):
+            if idx != len(c_list) - 1:
+                x = m_i(x+c_i)
+            else:
+                x = m_i(torch.cat([x, c_i], 1))
         return x
     
+class KTHDecoder(nn.Module):
+    """
+    Try image decoder concat with latent code in each layer.
+    Structure from "Stochastic Adversarial Video Prediction" without CDNA.
+    """
+    def __init__(self, channel_in, f_extracter=False):
+        super(KTHDecoder, self).__init__()
+        self.img_encoder = [
+            self._make_block(3, 32, mode='down'),
+            self._make_block(64, 64, mode='down'),
+            self._make_block(96, 128, mode='down')
+        ]
+        self.decoder = [
+            self._make_block(160, 64, mode='up'),
+            self._make_block(160, 32, mode='up'),
+            self._make_block(96, 32, mode='up'),
+        ]
+        self.decoder += [nn.Sequential(
+            nn.Conv2d(35, 3, kernel_size=3, padding=1),
+            nn.Sigmoid()
+        )]
+        self.img_encoder = nn.ModuleList(self.img_encoder)
+        self.decoder = nn.ModuleList(self.decoder)
+        
+    def _make_block(self, in_channel, out_channel, mode, scale=2):
+        block = []
+        block += [
+            nn.Conv2d(in_channel, out_channel, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_channel),
+            nn.Conv2d(out_channel, out_channel, kernel_size=1),
+            nn.BatchNorm2d(out_channel),
+        ]
+        if mode == 'up':
+            block += [nn.Upsample(scale_factor=scale, mode='bilinear', align_corners=True)]
+        elif mode == 'down':
+            block += [nn.AvgPool2d(kernel_size=2)]
+        return nn.Sequential(*block)
+        
+    def forward(self, x, c):
+        # Encoder Part
+        skip_list = [c]
+        x_e = [
+            None,
+            F.upsample(x, scale_factor=4, mode='bilinear', align_corners=True),
+            F.upsample(x, scale_factor=2, mode='bilinear', align_corners=True)
+        ]
+        for i in range(len(self.img_encoder)):
+            if i == 0:
+                c = self.img_encoder[i](c)
+            else:
+                c = self.img_encoder[i](torch.cat([c, x_e[i]], 1))
+            skip_list.append(c)
+        # Pop last output of last layer
+        skip_list.pop()
+        skip_list.append(None)
+        skip_list = list(reversed(skip_list))
+        
+        # Decoder Part
+        x_d = [
+            x,
+            F.upsample(x, scale_factor=2, mode='bilinear', align_corners=True),
+            F.upsample(x, scale_factor=4, mode='bilinear', align_corners=True),
+            None
+        ]
+        for i in range(len(self.decoder)):
+            if i == 0:
+                c = self.decoder[i](torch.cat([c, x_d[i]], 1))
+            elif i == len(self.decoder) - 1:
+                c = self.decoder[i](torch.cat([c, skip_list[i]], 1))
+            else:
+                c = self.decoder[i](torch.cat([c, skip_list[i], x_d[i]], 1))
+        return c
     
 
 def encoder(**kwargs):

@@ -30,16 +30,16 @@ def train_flow(model, img_1, img_2):
     encoder, decoder = model['encoder'], model['decoder']
 #     c_list = image_encoder(img_1)
     z = encoder(img_2, img_1)
-    z_inv = encoder(img_1, img_2)
+#     z_inv = encoder(img_1, img_2)
     img_pred_2 = decoder(z, img_1)
-    img_pred_1 = decoder(z_inv, img_2)
-    l1, mse, edge = img_loss(img_1, img_2, img_pred_1, img_pred_2)
-    return l1, mse, edge, MSELoss(-z, z_inv)
+#     img_pred_1 = decoder(z_inv, img_2)
+#     l1, mse, edge = img_loss(img_1, img_2, img_pred_1, img_pred_2)
+    return l1_loss(img_pred_2, img_2), EdgeLoss(img_pred_2, img_2)
 
 def img_loss(img_1, img_2, img_pred_1, img_pred_2):
-    l1 = 0.5 * l1_loss(img_pred_1, img_1) + 0.5 * l1_loss(img_pred_2, img_2)
-    mse = 0.5 * MSELoss(img_pred_1, img_1) + 0.5 * MSELoss(img_pred_2, img_2)
-    edge = 0.5 * EdgeLoss(img_pred_1, img_1) + 0.5 * EdgeLoss(img_pred_2, img_2)
+    l1 = 1 * l1_loss(img_pred_1, img_1) + 0 * l1_loss(img_pred_2, img_2)
+    mse = 1 * MSELoss(img_pred_1, img_1) + 0 * MSELoss(img_pred_2, img_2)
+    edge = 1 * EdgeLoss(img_pred_1, img_1) + 0 * EdgeLoss(img_pred_2, img_2)
     return l1, mse, edge
 
 def train_vae(model, img_1, img_2):
@@ -62,10 +62,7 @@ def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
     }
     min_loss = float('inf')
     loss_record = {
-        'z_loss' : [],
-        'z_cycle' : [],
         'l1' : [],
-        'l2' : [],
         'edge' : [],
         'total_loss' : []
     }
@@ -76,10 +73,7 @@ def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
 #         model['image_encoder'].train()
 
         running_loss = {
-            'z_loss' : 0.0,
-            'z_cycle' : 0.0,
             'l1' : 0.0,
-            'l2' : 0.0,
             'edge' : 0.0
         }
 
@@ -96,12 +90,12 @@ def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
             loss = {}
             with torch.set_grad_enabled(True):
                 if model['encoder'].vae == False:
-                    loss['z_loss'] = train_z(model, img_1, batch_size)
-                    loss['l1'], loss['l2'], loss['edge'], loss['z_cycle'] = train_flow(model, img_1, img_2)
+#                     loss['z_loss'] = train_z(model, img_1, batch_size)
+                    loss['l1'], loss['edge'] = train_flow(model, img_1, img_2)
                 else:
                     loss['z_loss'], loss['l1'], loss['l2'], loss['edge'] = train_vae(model, img_1, img_2)
 
-                total_loss = 0.001 * loss['z_loss'] + loss['l1'] + loss['l2'] + loss['edge']
+                total_loss = loss['l1']
                 total_loss.backward()
                 optimizer.step()
 #                 scheduler.step(total_loss)
@@ -113,7 +107,8 @@ def train(model, dataloader, optimizer, scheduler, n_epochs=30, batch_size=20):
         epoch_loss = sum(running_loss.values()) / len(dataloader)
         loss_record['total_loss'].append(epoch_loss)
         print('No.{} total loss: {:.4f}, '.format(epoch, epoch_loss), end='')
-        print('z_loss: {:.4f}, l1: {:.4f}, l2: {:.4f}, edge: {:.4f}, z_cycle: {:.4f}'.format(running_loss['z_loss']/len(dataloader), running_loss['l1']/len(dataloader), running_loss['l2']/len(dataloader), running_loss['edge']/len(dataloader), running_loss['z_cycle']/len(dataloader)))
+#         print('z_loss: {:.4f}, l1: {:.4f}, l2: {:.4f}, edge: {:.4f}, z_cycle: {:.4f}'.format(running_loss['z_loss']/len(dataloader), running_loss['l1']/len(dataloader), running_loss['l2']/len(dataloader), running_loss['edge']/len(dataloader), running_loss['z_cycle']/len(dataloader)))
+        print('l1: {:.4f}, edge: {:.4f}'.format(running_loss['l1']/len(dataloader), running_loss['edge']/len(dataloader)))
         # deep copy the model
 #         if epoch_loss < min_loss:
 #             min_loss = epoch_loss
