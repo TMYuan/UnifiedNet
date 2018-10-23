@@ -1,5 +1,6 @@
-from model import encoder, decoder, image_encoder
-from util import datasets, plot
+# from model import encoder, decoder, image_encoder
+from model import drnet
+from util import datasets, plot, kth
 from torchvision import transforms
 from torch.utils.data import DataLoader
 from train import train
@@ -22,9 +23,10 @@ PARAM_CHAIRS = {
     'dtype': 'image'
 }
 
-SAVED_PATH = 'saved/1008_3/'
-BATCH_SIZE = 10
-N_EPOCHS = 30
+SAVED_PATH = 'saved/1021_7/'
+BATCH_SIZE = 100
+EPOCH_SIZE = 600
+N_EPOCHS = 100
 LR = 1e-3
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -52,30 +54,35 @@ if __name__ == '__main__':
                 transforms.ToTensor(),
 #                 transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
             ])
-    kth_dataset = datasets.KTHDataset('./data/kth/raw', transforms=trans, img_size=64)
-    kth_train = DataLoader(dataset=kth_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+    kth_dataset = kth.KTH(train=True, data_root='./data', seq_len=20, image_size=64, transforms=trans)
+    kth_train = DataLoader(dataset=kth_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True, num_workers=2, pin_memory=True)
+    kth_test = kth.KTH(train=False, data_root='./data', seq_len=20, image_size=64, transforms=trans)
+    
     if not os.path.exists(SAVED_PATH):
         os.makedirs(SAVED_PATH)
-#     trans = transforms.ToTensor()
-#     m_dataset = datasets.MNISTDataset('./data/mnist_test_seq.npy', transforms=trans, img_size=64)
-#     m_train = DataLoader(dataset=m_dataset, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
 
     # Build Model
     model = {
-        'encoder': encoder(channel_in=6, vae=False).to(DEVICE),
-        'decoder': decoder(channel_in=3, f_extracter=True).to(DEVICE),
+#         'encoder': encoder(channel_in=6, vae=False).to(DEVICE),
+#         'decoder': decoder(channel_in=3, f_extracter=True).to(DEVICE),
 #         'image_encoder': image_encoder().to(DEVICE)
+        'encoder_c': drnet.Encoder(1, 128).to(DEVICE),
+        'encoder_m': drnet.Encoder(2, 128, vae=True).to(DEVICE),
+        'decoder': drnet.Decoder(128+128, 1).to(DEVICE),
+        'D': drnet.Discriminator(2, (1, 64, 64)).to(DEVICE)
     }
-    params = []
-    for m in model.values():
-        params += list(m.parameters())
-#     optimizer = optim.SGD(params, lr=LR, momentum=0.9, weight_decay=0.1)
-    optimizer = optim.Adam(params)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=3)
+#     params = []
+#     for m in model.values():
+#         params += list(m.parameters())
+    params = list(model['encoder_c'].parameters()) + list(model['encoder_m'].parameters()) + list(model['decoder'].parameters())
+    optimizer_G = optim.RMSprop(params, lr=LR)
+    optimizer_D = optim.RMSprop(model['D'].parameters(), lr=LR)
     
     # Training Procedure
-    model, loss_record = train(model, kth_train, optimizer, scheduler, N_EPOCHS, batch_size=BATCH_SIZE)
-    torch.save(model['encoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_encoder.pt'))
+    model, loss_record = train(model, kth_train, kth_test, optimizer_G, optimizer_D, N_EPOCHS, batch_size=BATCH_SIZE, epoch_size=EPOCH_SIZE, env_name=SAVED_PATH)
+    torch.save(model['encoder_c'].state_dict(), os.path.join(SAVED_PATH, 'weight_encoder_c.pt'))
+    torch.save(model['encoder_m'].state_dict(), os.path.join(SAVED_PATH, 'weight_encoder_m.pt'))
     torch.save(model['decoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_decoder.pt'))
+    torch.save(model['D'].state_dict(), os.path.join(SAVED_PATH, 'weight_D.pt'))
 #     torch.save(model['image_encoder'].state_dict(), os.path.join(SAVED_PATH, 'weight_image_encoder.pt'))
     plot.draw(loss_record, SAVED_PATH)

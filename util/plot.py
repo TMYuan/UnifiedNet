@@ -15,7 +15,7 @@ def draw(record, path):
             plt.text(x, y, '{:.4f}'.format(y))
         plt.title(k)
         plt.xlim(0, len(i))
-        plt.ylim(0, max(i) * 1.2)
+        plt.ylim(min(min(i), 0) * 1.2, max(i) * 1.2)
         plt.savefig(os.path.join(path, '{}.jpg'.format(k)), dpi=200)
         plt.close()
 
