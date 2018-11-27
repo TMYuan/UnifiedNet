@@ -64,7 +64,7 @@ class Encoder(nn.Module):
         self.block5 = nn.Sequential(
                         nn.Conv2d(512, out_channels, 4, 1, 0),
                         nn.BatchNorm2d(out_channels),
-#                         nn.Tanh()
+                        nn.Tanh(),
                         )
         
     def reparameterize(self, mu, log_var):
@@ -144,23 +144,23 @@ class Discriminator(nn.Module):
         self.model = nn.Sequential(
             nn.Conv2d(in_channel,32,3,2,1),
             nn.BatchNorm2d(32),
-            nn.LeakyReLU(),
+            nn.LeakyReLU(0.2, inplace=True),
             
             nn.Conv2d(32,32,3,1,1),
             nn.BatchNorm2d(32),
-            nn.LeakyReLU(),
+            nn.LeakyReLU(0.2, inplace=True),
             
             nn.Conv2d(32,32,3,2,1),
             nn.BatchNorm2d(32),
-            nn.LeakyReLU(),
+            nn.LeakyReLU(0.2, inplace=True),
             
             nn.Conv2d(32,32,3,1,1),
             nn.BatchNorm2d(32),
-            nn.LeakyReLU(),
+            nn.LeakyReLU(0.2, inplace=True),
             
             nn.Conv2d(32,32,3,2,1),
             nn.BatchNorm2d(32),
-            nn.LeakyReLU(),
+            nn.LeakyReLU(0.2, inplace=True),
             
             Flatten(),
             nn.Linear(8*8*32, 1),

@@ -2,12 +2,16 @@ import time
 import copy
 import torch
 import visdom
+import os
 from tqdm import tqdm
 from torch.distributions.normal import Normal
 from loss import MSELoss, SmoothL1Loss, EdgeLoss, L1Loss
-from torch.nn.functional import binary_cross_entropy, l1_loss
+from torch.nn.functional import binary_cross_entropy, l1_loss, mse_loss
+from util import utils 
+from model.vgg import Vgg16
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+vgg = Vgg16(requires_grad=False).to(DEVICE)
 
 def train_z(model, img_1, batch_size):
     """
@@ -23,30 +27,56 @@ def train_z(model, img_1, batch_size):
     
     return MSELoss(z_recon, z)
 
-def train_flow(img_1, img_2, model, optimizer_G):
+def perceptual_loss(pred, gt):
+    gt_n = utils.normalize_batch(gt)
+    pred_n = utils.normalize_batch(pred)
+#     gt_n = gt
+#     pred_n = pred
+    
+    f_gt = vgg(gt_n)
+    f_pred = vgg(pred_n)
+    
+    loss = MSELoss(f_pred.relu4_3, f_gt.relu4_3) +\
+        0.5 * MSELoss(f_pred.relu3_3, f_gt.relu3_3)+\
+        0.25 * MSELoss(f_pred.relu2_2, f_gt.relu2_2)+\
+        0.125 * MSELoss(f_pred.relu1_2, f_gt.relu1_2)
+    return loss
+
+def train_flow(img_1, img_2, model, optimizer_G, step):
     """
     Work flow:
     inputs(img_2) -> encoder(img_2, img_1) -> z -> decoder(z, img_1) -> flow_recon
     """
-    encoder_c, encoder_m, decoder, D = model['encoder_c'], model['encoder_m'], model['decoder'], model['D']
+    encoder_c, encoder_m, decoder = model['encoder_c'], model['encoder_m'], model['decoder']
     optimizer_G.zero_grad()
     with torch.set_grad_enabled(True):
         vec_c, skip = encoder_c(img_1)
         if encoder_m.vae:
             vec_m, _, _, _ = encoder_m(torch.cat([img_1, img_2], dim=1))
+            vec_i, _, _, _ = encoder_m(torch.cat([img_2, img_2], dim=1))
         else:
             vec_m, _ = encoder_m(torch.cat([img_1, img_2], dim=1))
+            vec_i, _ = encdoer_m(torch.cat([img_2, img_2], dim=1))
         img_pred_2 = decoder(vec_c, skip, vec_m)
+        if step % 100 == 0:
+            img_i = decoder(vec_c, skip, vec_i)
+    if step % 100 != 0:
+#         l1 = l1_loss(img_pred_2, img_2)
+# #     l2 = 0.9 * mse_loss(img_pred_2, img_2) + 0.1 * mse_loss(img_i, img_1)
+        perceptual = perceptual_loss(img_pred_2, img_2)
+#         edge = EdgeLoss(img_pred_2, img_2)
+# #         G = -torch.mean(D(torch.cat([img_1, img_pred_2], dim=1)))
+    else:
+#         l1 = 0.5 * l1_loss(img_pred_2, img_2) + 0.5 * l1_loss(img_i, img_1)
+        perceptual = 0.5 * perceptual_loss(img_pred_2, img_2) + 0.5 * perceptual_loss(img_i, img_1)
+#         edge = 0.5 * EdgeLoss(img_pred_2, img_2) + 0.5 * EdgeLoss(img_i, img_1)
+#     perceptual = perceptual_loss(img_pred_2, img_2)
+#     loss = l1 + 0.1 * perceptual + 0.1 * edge
+    loss = perceptual
+    loss.backward()
+    optimizer_G.step()
         
-        l1 = l1_loss(img_pred_2, img_2)
-        edge = EdgeLoss(img_pred_2, img_2)
-        G = -torch.mean(D(torch.cat([img_1, img_pred_2], dim=1)))
-        
-        loss = l1 + 0.1 * edge + G
-        loss.backward()
-        optimizer_G.step()
-        
-    return l1, edge, G
+    return perceptual
 
 def img_loss(img_1, img_2, img_pred_1, img_pred_2):
     l1 = 1 * l1_loss(img_pred_1, img_1) + 0 * l1_loss(img_pred_2, img_2)
@@ -65,14 +95,21 @@ def train_vae(model, img_1, img_2):
     return kld
 
 def train_D(img_1, img_2, model, optimizer_D):
-    encoder_c, decoder, D = model['encoder_c'], model['decoder'], model['D']
-    
-    z = Normal(torch.zeros(img_1.shape[0] * 128 * 1 * 1), torch.ones(img_1.shape[0] * 128 * 1 * 1)).sample()
-    z = z.view(img_1.shape[0], 128, 1, 1).to(DEVICE)
+    encoder_c, encoder_m, decoder, D = model['encoder_c'], model['encoder_m'], model['decoder'], model['D']
+    # Use randomly sampling z to generate fake img
+    #z = Normal(torch.zeros(img_1.shape[0] * 128 * 1 * 1), torch.ones(img_1.shape[0] * 128 * 1 * 1)).sample()
+    #z = z.view(img_1.shape[0], 128, 1, 1).to(DEVICE)
     optimizer_D.zero_grad()
     with torch.set_grad_enabled(True):
         vec_c, skip = encoder_c(img_1)
-        fake_img = decoder(vec_c, skip, z).detach()
+        if encoder_m.vae:
+            vec_m, _, _, _ = encoder_m(torch.cat([img_1, img_2], dim=1))
+        else:
+            vec_m, _ = encoder_m(torch.cat([img_1, img_2], dim=1))
+        fake_img = decoder(vec_c, skip, vec_m).detach()
+        
+#         fake_img = decoder(vec_c, skip, z).detach()
+        
         
         # Adversarial loss
         loss_D = -torch.mean(D(torch.cat([img_1, img_2], dim=1))) + torch.mean(D(torch.cat([img_1, fake_img], dim=1)))
@@ -97,6 +134,10 @@ def train(model, dataloader, testloader, optimizer_G, optimizer_D, n_epochs=30, 
     vis = visdom.Visdom(env=env_name)
     vis_train = visdom.Visdom(env='train_' + env_name)
     
+    # Log file path
+    log = os.path.join(env_name + 'log.txt')
+    saved_path = env_name
+    
     # Create fix test batch
     test_img_1 = []
     test_img_2 = []
@@ -115,10 +156,12 @@ def train(model, dataloader, testloader, optimizer_G, optimizer_D, n_epochs=30, 
     min_loss = float('inf')
     loss_record = {
 #         'z_loss' : [],
-        'l1' : [],
-        'edge' : [],
-        'D' : [],
-        'G' : [],
+#         'l1' : [],
+#         'l2' : [],
+        'perceptual' : [],
+#         'edge' : [],
+#         'D' : [],
+#         'G' : [],
         'total_loss' : []
     }
     for epoch in tqdm(range(n_epochs), desc='Epoch'):
@@ -128,10 +171,12 @@ def train(model, dataloader, testloader, optimizer_G, optimizer_D, n_epochs=30, 
 
         running_loss = {
 #             'z_loss' : 0.0,
-            'l1' : 0.0,
-            'edge' : 0.0,
-            'D' : 0.0,
-            'G' : 0.0,
+#             'l1' : 0.0,
+#             'l2' : 0.0,
+            'perceptual' : 0.0,
+#             'edge' : 0.0,
+#             'D' : 0.0,
+#             'G' : 0.0,
         }
 
         # Iterate over dataloader
@@ -139,7 +184,7 @@ def train(model, dataloader, testloader, optimizer_G, optimizer_D, n_epochs=30, 
             model['encoder_c'].train()
             model['encoder_m'].train()
             model['decoder'].train()
-            model['D'].train()
+#             model['D'].train()
             img_1, img_2 = next(iter(dataloader))
             
             img_1 = img_1.to(DEVICE)
@@ -149,16 +194,17 @@ def train(model, dataloader, testloader, optimizer_G, optimizer_D, n_epochs=30, 
             loss = {}
             
             # Train D
-            loss['D'] = train_D(img_1, img_2, model, optimizer_D)
-            loss['l1'], loss['edge'], loss['G'] = train_flow(img_1, img_2, model, optimizer_G)
-            
+#             loss['D'] = train_D(img_1, img_2, model, optimizer_D)
+#             loss['l1'], loss['perceptual'], loss['edge'] = train_flow(img_1, img_2, model, optimizer_G, i)
+            loss['perceptual'] = train_flow(img_1, img_2, model, optimizer_G, i)
+#             loss['G'] = train_flow(img_1, img_2, model, optimizer_G, i)
             # Print some sample
             if i % 100 == 0:
                 with torch.no_grad():
                     model['encoder_c'].eval()
                     model['encoder_m'].eval()
                     model['decoder'].eval()
-                    model['D'].eval()
+#                     model['D'].eval()
                     vec_c, skip = model['encoder_c'](img_1)
                     vec_m, _, _, _ = model['encoder_m'](torch.cat([img_1, img_2], dim=1))
                     img_pred = model['decoder'](vec_c, skip, vec_m)
@@ -172,21 +218,30 @@ def train(model, dataloader, testloader, optimizer_G, optimizer_D, n_epochs=30, 
         loss_record['total_loss'].append(epoch_loss)
         print('No.{} total loss: {:.4f}, '.format(epoch, epoch_loss), end='')
 #         print('z_loss: {:.4f}, l1: {:.4f}, l2: {:.4f}, edge: {:.4f}, z_cycle: {:.4f}'.format(running_loss['z_loss']/len(dataloader), running_loss['l1']/len(dataloader), running_loss['l2']/len(dataloader), running_loss['edge']/len(dataloader), running_loss['z_cycle']/len(dataloader)))
-        print('edge: {:.4f}, l1: {:.4f}, G: {:.4f}, D: {:.4f}'.format(running_loss['edge'] / epoch_size, running_loss['l1'] / epoch_size, running_loss['G'] / epoch_size, running_loss['D'] / epoch_size))
-        # deep copy the model
-#         if epoch_loss < min_loss:
-#             min_loss = epoch_loss
-#             best_weight['encoder'] = copy.deepcopy(model['encoder'].state_dict())
-#             best_weight['decoder'] = copy.deepcopy(model['decoder'].state_dict())
+#         print('edge: {:.4f}, l1: {:.4f}, G: {:.4f}, D: {:.4f}'.format(running_loss['edge'] / epoch_size, running_loss['l1'] / epoch_size, running_loss['G'] / epoch_size, running_loss['D'] / epoch_size))
+#         print('l1: {:.4f}, perceptual: {:.4f}, edge: {:.4f}'.format(running_loss['l1'] / epoch_size, running_loss['perceptual'] / epoch_size, running_loss['edge'] / epoch_size))
+        print('perceptual: {:.4f}'.format(running_loss['perceptual'] / epoch_size))
+    
+        # Write to log file
+        with open(log, 'a') as file:
+            file.write('No.{} total loss: {:.4f}, '.format(epoch, epoch_loss))
+#             file.write('edge: {:.4f}, l1: {:.4f}, G: {:.4f}, D: {:.4f}\n'.format(running_loss['edge'] / epoch_size, running_loss['l1'] / epoch_size, running_loss['G'] / epoch_size, running_loss['D'] / epoch_size))
+#             file.write('l1: {:.4f}, perceptual: {:.4f}, edge: {:.4f}\n'.format(running_loss['l1'] / epoch_size, running_loss['perceptual'] / epoch_size,  running_loss['edge'] / epoch_size))
+            file.write('perceptual: {:.4f}\n'.format(running_loss['perceptual'] / epoch_size))
+
         with torch.no_grad():
             model['encoder_c'].eval()
             model['encoder_m'].eval()
             model['decoder'].eval()
-            model['D'].eval()
+#             model['D'].eval()
             vec_c, skip = model['encoder_c'](test_img_1)
             vec_m, _, _, _ = model['encoder_m'](torch.cat([test_img_1, test_img_2], dim=1))
             img_pred = model['decoder'](vec_c, skip, vec_m)
             vis.images(torch.cat([test_img_1, test_img_2, img_pred], dim=0))
+        if epoch % 10 == 9:
+            torch.save(model['encoder_c'].state_dict(), os.path.join(saved_path, 'weight_encoder_c_{}.pt'.format(epoch+1)))
+            torch.save(model['encoder_m'].state_dict(), os.path.join(saved_path, 'weight_encoder_m_{}.pt'.format(epoch+1)))
+            torch.save(model['decoder'].state_dict(), os.path.join(saved_path, 'weight_decoder_{}.pt'.format(epoch+1)))
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))

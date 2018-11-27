@@ -2,7 +2,7 @@ from torch.nn import functional as F
 import numpy as np
 import torch
 
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") 
+# DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") 
 
 def MSELoss(prediction, ground_truth):
     """
@@ -22,7 +22,7 @@ def SmoothL1Loss(prediction, ground_truth):
 def L1Loss(prediction, ground_truth):
     return F.l1_loss(prediction, ground_truth)
 
-def EdgeLoss(prediction, ground_truth):
+def EdgeLoss(prediction, ground_truth, device):
     """
     Calculate GDL(gradient difference loss) between GT and prediction.
     """
@@ -46,9 +46,9 @@ def EdgeLoss(prediction, ground_truth):
     # Create tensors from numpy and reshape to desired shape of tensor
     # (out_channel, in_channel, H, W)
     x_filter = torch.from_numpy(x_filter).float().view(1, 1, 3, 3)
-    x_filter = x_filter.repeat(channel_out, channel_in, 1, 1).to(DEVICE)
+    x_filter = x_filter.repeat(channel_out, channel_in, 1, 1).to(device)
     y_filter = torch.from_numpy(y_filter).float().view(1, 1, 3, 3)
-    y_filter = y_filter.repeat(channel_out, channel_in, 1, 1).to(DEVICE)
+    y_filter = y_filter.repeat(channel_out, channel_in, 1, 1).to(device)
 
     # Use convolution to get difference maps of prediction and GT.
     gt_x = F.conv2d(ground_truth, x_filter)

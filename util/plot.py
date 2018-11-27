@@ -11,12 +11,12 @@ def draw(record, path):
     plt.ioff()
     for (k, i) in record.items():
         plt.plot(range(len(i)), i, marker='o')
-        for x, y in zip(list(range(len(i))), i):
-            plt.text(x, y, '{:.4f}'.format(y))
+#         for x, y in zip(list(range(len(i))), i):
+#             plt.text(x, y, '{:.4f}'.format(y))
         plt.title(k)
         plt.xlim(0, len(i))
         plt.ylim(min(min(i), 0) * 1.2, max(i) * 1.2)
-        plt.savefig(os.path.join(path, '{}.jpg'.format(k)), dpi=200)
+        plt.savefig(os.path.join(path, '{}.jpg'.format(k)), dpi=300)
         plt.close()
 
 if __name__ == '__main__':

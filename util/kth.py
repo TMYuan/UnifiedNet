@@ -66,11 +66,17 @@ class KTH(object):
         seq_len = len(vid['files'][seq_idx])
            
         seq = [] 
-        for i in range(2):
-            t = np.random.randint(seq_len)
-            fname = '%s/%s' % (dname, vid['files'][seq_idx][t])
-            im = misc.imread(fname, mode='L').astype('uint8')[..., np.newaxis]
-            seq.append(im)
+#         for i in range(2):
+#             t = np.random.randint(seq_len)
+#             fname = '%s/%s' % (dname, vid['files'][seq_idx][t])
+# #             im = misc.imread(fname, mode='L').astype('uint8')[..., np.newaxis]
+#             im = misc.imread(fname).astype('uint8')
+#             seq.append(im)
+        t = np.random.randint(seq_len - 1)
+        fname_1 = '%s/%s' % (dname, vid['files'][seq_idx][t])
+        fname_2 = '%s/%s' % (dname, vid['files'][seq_idx][t + 1])
+        seq.append(misc.imread(fname_1).astype('uint8'))
+        seq.append(misc.imread(fname_2).astype('uint8'))
         return seq[0], seq[1]
 
     def __getitem__(self, index):
