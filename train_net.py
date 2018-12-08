@@ -71,6 +71,7 @@ train_generator = get_training_batch()
 netEC = drnet.Encoder(opt.channels, opt.content_dim).to(opt.device)
 netEM = drnet.Encoder(2*opt.channels, opt.motion_dim, vae=True).to(opt.device)
 netD = drnet.Decoder(opt.content_dim + opt.motion_dim, opt.channels, use_skip=True).to(opt.device)
+netI = drnet.Decoder(opt.content_dim, opt.channels).to(opt.device)
 utils.init_weights(netEC)
 utils.init_weights(netEM)
 utils.init_weights(netD)
@@ -79,6 +80,7 @@ utils.init_weights(netD)
 optimizerEC = optim.Adam(netEC.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
 optimizerEM = optim.Adam(netEM.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
 optimizerD = optim.Adam(netD.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
+optimizerI = optim.Adam(netI.parameters(), lr=opt.lr, betas=(opt.beta1, 0.999))
 
 ## Loss function
 # vgg = Vgg16(requires_grad=False).to(opt.device)
@@ -100,6 +102,7 @@ def train(img_1, img_2):
     optimizerEC.zero_grad()
     optimizerEM.zero_grad()
     optimizerD.zero_grad()
+    optimizerI.zero_grad()
     
     with torch.set_grad_enabled(True):
         vec_c, skip = netEC(img_1)
@@ -108,9 +111,10 @@ def train(img_1, img_2):
         else:
             vec_m, _ = netEM(torch.cat([img_1, img_2], dim=1))
         pred = netD(vec_c, skip, vec_m)
+        recon = netI(vec_c, None, None)
     
     # Reconstruction loss
-    l1_loss = F.l1_loss(pred, img_2)
+    l1_loss = F.l1_loss(pred, img_2) + F.l1_loss(recon, img_1)
     # l2_loss = F.mse_loss(pred, img_2)
     
     # Edge loss
@@ -132,6 +136,7 @@ def train(img_1, img_2):
     optimizerEC.step()
     optimizerEM.step()
     optimizerD.step()
+    optimizerI.step()
     
     return l1_loss.item(), edge_loss.item(), kld_loss.item()
 
@@ -156,7 +161,7 @@ def train_identity(img_1, img_2):
     l1_loss = F.l1_loss(pred, img_1)
     
     # Similarity loss between two identity motion vector
-    sim_loss = F.l1_loss(vec_i_2, vec_i_1)
+    sim_loss = F.l1_loss(vec_i_1, torch.zeros_like(vec_i_1)) + F.l1_loss(vec_i_2, torch.zeros_like(vec_i_2))
     
     # Full loss
     loss = l1_loss + sim_loss
@@ -224,7 +229,7 @@ for epoch in tqdm(range(opt.niter), desc='Epoch'):
     pred = test(test_img_1, test_img_2)
     vis.images(torch.cat([test_img_1, test_img_2, pred], dim=0))
     
-    print('[%02d] l1 loss: %.4f | edge loss: %.4f | kld loss: %.4f' % (epoch, epoch_l1_loss/opt.epoch_size, epoch_edge_loss/opt.epoch_size, epoch_kld_loss/opt.epoch_size))
+    print('[%02d] l1 loss: %.4f | edge loss: %.4f | kld loss: %.4f | identity loss: %.4f' % (epoch, epoch_l1_loss/opt.epoch_size, epoch_edge_loss/opt.epoch_size, epoch_kld_loss/opt.epoch_size, epoch_id_loss/(opt.epoch_size // 10)))
 #     print('[%02d] l1 loss: %.4f | kld loss: %.4f' % (epoch, epoch_l1_loss/opt.epoch_size, epoch_kld_loss/opt.epoch_size))
 #     print('[%02d] l2 loss: %.4f' % (epoch, epoch_l2_loss/opt.epoch_size))
 #     print('[%02d] l1 loss: %.4f | kld loss: %.4f | identity loss: %.4f' % (epoch, epoch_l1_loss/opt.epoch_size, epoch_kld_loss/opt.epoch_size, epoch_id_loss/(opt.epoch_size // 10)))
@@ -236,7 +241,7 @@ for epoch in tqdm(range(opt.niter), desc='Epoch'):
         'edge' : epoch_edge_loss/opt.epoch_size,
 #         'perceptual' : epoch_perceptual_loss/opt.epoch_size,
         'KLD' : epoch_kld_loss/opt.epoch_size,
-#         'identity' : epoch_id_loss/(opt.epoch_size // 10)
+        'identity' : epoch_id_loss/(opt.epoch_size // 10),
     })
 
     

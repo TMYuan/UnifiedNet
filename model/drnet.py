@@ -119,7 +119,10 @@ class Decoder(nn.Module):
                     )
         
     def forward(self, content, skip, pose):
-        inp1 = torch.cat([content, pose], dim=1)
+        if pose is not None:
+            inp1 = torch.cat([content, pose], dim=1)
+        else:
+            inp1 = content
         out = self.block1(inp1)
         
         if self.use_skip:
